@@ -1,356 +1,338 @@
-// Thám Tử Nhí — 1000 deterministic puzzles (browser + Node)
+// Thám Tử Nhí — 300 deterministic puzzles built from the AI art catalog (browser + Node)
 (function (root) {
-  const Art = typeof module !== 'undefined' && module.exports ? require('./art.js') : root.Art;
-  const { COLORS, COLOR_KEYS, SPECIES, SPECIES_KEYS, SCENES, item, sparkle, PROPS, takenProp } = Art;
-
-  function mulberry32(a) {
-    return function () {
-      a |= 0; a = (a + 0x6d2b79f5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  const mk = (rng) => ({
-    r: rng,
-    int: (n) => Math.floor(rng() * n),
-    pick: (a) => a[Math.floor(rng() * a.length)],
-    chance: (p) => rng() < p,
-    shuffle: (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; },
-    sample: function (a, n) { return this.shuffle(a).slice(0, n); },
-  });
-  const cn = (c) => (COLORS[c] ? COLORS[c][0] : c);
-  const nm = (sp) => SPECIES[sp].name;
+  const VI = { red: 'đỏ', orange: 'cam', yellow: 'vàng', green: 'xanh lá', blue: 'xanh dương', purple: 'tím', pink: 'hồng' };
   const TOUGH = { red: ['orange', 'pink'], orange: ['red', 'yellow'], yellow: ['orange', 'green'], green: ['blue', 'yellow'], blue: ['purple', 'green'], purple: ['pink', 'blue'], pink: ['purple', 'red'] };
-
-  function base(R, sp) {
-    return {
-      sp,
-      shirt: { color: R.pick(COLOR_KEYS), pattern: R.pick(['plain', 'plain', 'dots', 'stripes']) },
-      bottom: { type: R.chance(0.35) ? 'skirt' : 'pants', color: R.pick(COLOR_KEYS) },
-      shoes: { color: R.pick(COLOR_KEYS) },
-    };
-  }
-  // random harmless extras (to make distractors richer at higher tiers)
-  function decorate(R, c, avoid = []) {
-    if (!avoid.includes('hat') && R.chance(0.25)) c.hat = { type: R.pick(['cap', 'beanie']), color: R.pick(COLOR_KEYS) };
-    else if (!avoid.includes('bow') && R.chance(0.2)) c.bow = R.pick(COLOR_KEYS);
-    if (!avoid.includes('glasses') && R.chance(0.15)) c.glasses = R.pick(COLOR_KEYS);
-    if (!avoid.includes('backpack') && R.chance(0.2)) c.backpack = R.pick(COLOR_KEYS);
-    if (!avoid.includes('scarf') && R.chance(0.12)) c.scarf = R.pick(COLOR_KEYS);
-    return c;
-  }
-  const other = (R, c, pool = COLOR_KEYS) => R.pick(pool.filter((x) => x !== c));
-
-  // ----------------------------------------------------------------- types
-  const LOST = {
-    shoe: { name: 'một chiếc giày', short: 'giày', scenes: ['classroom', 'livingroom', 'bedroom', 'playground'], look: 'chân' },
-    cap: { name: 'chiếc mũ lưỡi trai', short: 'mũ', scenes: ['park', 'playground', 'beach'], look: 'đầu' },
-    beanie: { name: 'chiếc mũ len', short: 'mũ len', scenes: ['snow', 'livingroom'], look: 'đầu' },
-    backpack: { name: 'chiếc ba lô', short: 'ba lô', scenes: ['classroom', 'park'], look: 'lưng' },
-    scarf: { name: 'chiếc khăn quàng', short: 'khăn quàng', scenes: ['snow', 'classroom', 'livingroom'], look: 'cổ' },
-    glasses: { name: 'chiếc kính', short: 'kính', scenes: ['livingroom', 'bedroom', 'beach', 'classroom'], look: 'mắt' },
-    bow: { name: 'chiếc nơ', short: 'nơ', scenes: ['bedroom', 'classroom', 'garden'], look: 'đầu' },
-  };
-  const FOODS = [
-    { prop: 'cake', c: 'pink', name: 'bánh kem dâu' },
-    { prop: 'cake', c: '#8d5a3b', name: 'bánh sô-cô-la' },
-    { prop: 'cake', c: 'yellow', name: 'bánh kem xoài' },
-    { prop: 'bowl', c: 'pink', name: 'kem dâu' },
-    { prop: 'bowl', c: 'green', name: 'kem trà xanh' },
-    { prop: 'bowl', c: '#8d5a3b', name: 'kem sô-cô-la' },
-    { prop: 'jar', c: '#f5a623', name: 'mật ong' },
-    { prop: 'jar', c: 'red', name: 'mứt dâu' },
-    { prop: 'jar', c: 'purple', name: 'mứt việt quất' },
-    { prop: 'melon', c: 'red', name: 'dưa hấu' },
-  ];
-  const OWN = {
-    umbrella: { name: 'Chiếc ô', scenes: ['livingroom', 'park', 'classroom'] },
-    kite: { name: 'Con diều', scenes: ['park', 'beach', 'playground'] },
-    towel: { name: 'Chiếc khăn tắm', scenes: ['beach'] },
+  const NOUN = { cap: 'mũ', backpack: 'ba lô', scarf: 'khăn quàng', glasses: 'kính', shoe: 'giày', balloon: 'bóng bay', flower: 'bông hoa', apple: 'quả táo', lollipop: 'kẹo mút' };
+  const ACC = {
+    cap: { name: 'chiếc mũ', look: 'đầu', wear: 'đội mũ', scenes: ['park', 'playground', 'beach'] },
+    backpack: { name: 'chiếc ba lô', look: 'lưng', wear: 'đeo ba lô', scenes: ['classroom', 'park'] },
+    scarf: { name: 'chiếc khăn quàng', look: 'cổ', wear: 'quàng khăn', scenes: ['snow', 'livingroom', 'classroom'] },
+    glasses: { name: 'chiếc kính', look: 'mắt', wear: 'đeo kính', scenes: ['livingroom', 'bedroom', 'classroom'] },
   };
   const TAKEN = {
-    balloon: { verb: 'lấy', name: 'quả bóng bay', scenes: ['park', 'playground'], colors: COLOR_KEYS },
-    flower: { verb: 'hái', name: 'bông hoa', scenes: ['garden'], colors: ['red', 'yellow', 'purple', 'pink', 'orange', 'blue'] },
-    apple: { verb: 'hái', name: 'quả táo', scenes: ['garden', 'park'], colors: ['red', 'green', 'yellow'] },
-    lollipop: { verb: 'lấy', name: 'chiếc kẹo mút', scenes: ['kitchen', 'livingroom', 'bedroom'], colors: COLOR_KEYS },
+    balloon: { verb: 'lấy', name: 'quả bóng bay', scenes: ['park', 'playground'] },
+    flower: { verb: 'hái', name: 'bông hoa', scenes: ['garden'] },
+    apple: { verb: 'hái', name: 'quả táo', scenes: ['garden', 'autumn'] },
+    lollipop: { verb: 'lấy', name: 'chiếc kẹo mút', scenes: ['kitchen', 'livingroom', 'bedroom'] },
   };
-  const ODD = {
-    shirt: { q: (c) => `Cả lớp đều mặc áo màu ${cn(c)}. Bạn nào mặc áo khác màu?`, e: (n, d) => `Bạn ${n} mặc áo màu ${cn(d)}.`, look: 'áo', scenes: ['classroom', 'playground'] },
-    hat: { q: (c) => `Các bạn đều đội mũ màu ${cn(c)}. Bạn nào đội mũ khác màu?`, e: (n, d) => `Bạn ${n} đội mũ màu ${cn(d)}.`, look: 'mũ', scenes: ['park', 'beach', 'playground'] },
-    shoes: { q: (c) => `Các bạn đều đi giày màu ${cn(c)}. Bạn nào đi giày khác màu?`, e: (n, d) => `Bạn ${n} đi giày màu ${cn(d)}.`, look: 'giày', scenes: ['classroom', 'park', 'livingroom'] },
+  // single-clue "mess" kinds
+  const MESS = {
+    mud: { scenes: ['livingroom', 'bedroom', 'classroom', 'hallway', 'park', 'playground', 'garden'], prop: { img: 'mudprints', x: 50, y: 80, w: 56 }, did: 'giẫm bùn', not: 'bị dính bùn', hint: 'Con nhìn giày của các bạn nhé!', ex: (n) => `Giày của bạn ${n} dính đầy bùn.` },
+    wet: { scenes: ['hallway', 'livingroom'], prop: { img: 'wetumbrella', x: 72, y: 70, w: 14 }, did: 'đi mưa về mà không mặc áo mưa', not: 'bị ướt mưa', hint: 'Con nhìn xem bạn nào bị ướt nhé!', ex: (n) => `Bạn ${n} ướt sũng nước mưa.` },
+    leaves: { scenes: ['autumn', 'park', 'garden'], prop: { img: 'leafpile', x: 50, y: 78, w: 34 }, did: 'nhảy vào đống lá khô', not: 'bị lá cây dính vào người', hint: 'Con nhìn xem bạn nào có lá dính trên người nhé!', ex: (n) => `Trên người bạn ${n} còn dính lá cây.` },
+    flour: { scenes: ['kitchen'], prop: { img: 'flour', x: 50, y: 62, w: 24 }, did: 'làm đổ túi bột mì', not: 'bị dính bột mì', hint: 'Con nhìn xem bạn nào bị dính bột trắng nhé!', ex: (n) => `Mặt và tay bạn ${n} dính đầy bột mì.` },
+    paint: { scenes: ['classroom', 'livingroom', 'bedroom'], did: 'làm đổ sơn', not: 'bị dính sơn', hint: 'Con nhìn tay của các bạn nhé!', ex: (n) => `Tay bạn ${n} dính sơn.` },
+    smear: { scenes: ['kitchen', 'livingroom'], did: 'ăn vụng', not: 'bị dính bánh kẹo ở miệng', hint: 'Con nhìn miệng của các bạn nhé!', ex: (n) => `Miệng bạn ${n} còn dính đồ ăn.` },
   };
+  const CRIMES = ['lấy trộm bánh quy', 'làm vỡ chiếc bình hoa', 'giấu đồ chơi của em bé', 'làm đổ cốc sữa', 'vẽ bậy lên tường', 'ăn hết kẹo trong hộp'];
+  const LABEL = { lost: 'Đồ bị bỏ quên', shadow: 'Đoán bóng', ate: 'Ai ăn vụng', paint: 'Đổ sơn', mess: 'Dấu vết', owner: 'Đồ của ai', taken: 'Ai lấy đồ', odd: 'Ai khác biệt', lookalike: 'Giống ảnh',
+    negative: 'Bạn nào KHÔNG', peek: 'Ai đang trốn', photoMissing: 'Ai vắng mặt', whatLost: 'Mất đồ gì', count: 'Đếm dấu vết', witness: 'Lời nhân chứng', twoClue: 'Hai manh mối' };
+  // [unlock level, weight early, weight late(>180)]
+  const SCHEDULE = { lost: [1, 1, 0.4], shadow: [1, 1, 0.5], ate: [1, 1, 0.3], paint: [1, 1, 0.3], mess: [1, 1.6, 0.5], owner: [1, 0.8, 0.5], taken: [1, 1, 0.5], odd: [1, 0.8, 0.5], lookalike: [1, 0.8, 0.8],
+    negative: [31, 1.5, 1.2], peek: [31, 1.5, 1.5], photoMissing: [31, 1.2, 1.2], whatLost: [31, 1.5, 1.2], count: [31, 1.2, 1.2], witness: [91, 2.5, 3], twoClue: [91, 2.2, 3] };
 
-  const GEN = {
-    lost(R, n, tier) {
-      const key = R.pick(Object.keys(LOST)), L = LOST[key], C = R.pick(COLOR_KEYS);
-      const sps = R.sample(SPECIES_KEYS, n), ans = R.int(n);
-      const choices = sps.map((sp, i) => {
-        const c = tier >= 1 ? decorate(R, base(R, sp), [key === 'cap' || key === 'beanie' ? 'hat' : key, 'bow', 'hat']) : base(R, sp);
-        if (key === 'shoe') c.shoes = { color: i === ans ? C : tier >= 2 && R.chance(0.6) ? C : other(R, C) };
-        if (i === ans) { if (key === 'shoe') c.shoes.missing = 'L'; return c; }
-        const col = tier >= 2 && R.chance(0.5) ? C : other(R, C);
-        if (key === 'cap' || key === 'beanie') c.hat = { type: key, color: col };
-        else if (key !== 'shoe') c[key] = col;
-        return c;
-      });
-      const scene = R.pick(L.scenes), spot = R.pick([[400, 375], [320, 385], [480, 370]]);
-      return {
-        scene, choices, answer: ans, clue: { item: key, color: C, spot },
-        question: `Bạn nào đã để quên ${L.name} ở ${SCENES[scene].name} vậy nhỉ?`,
-        hint: `Con nhìn kỹ ${L.look} của các bạn nhé!`,
-        explain: key === 'shoe' ? `Bạn ${nm(sps[ans])} chỉ còn một chiếc giày.` : `Bạn ${nm(sps[ans])} không có ${L.short}.`,
-        sig: `${key}|${C}`,
-      };
-    },
-    shadow(R, n, tier) {
-      const ans = R.int(n), scene = R.pick(['bedroom', 'livingroom', 'classroom']);
-      let choices;
-      if (tier >= 2) {
-        const sp = R.pick(SPECIES_KEYS);
-        const combos = R.sample([].concat(...['none', 'cap', 'beanie'].map((h) => ['none', 'balloon', 'lollipop', 'flower'].map((x) => [h, x]))), n);
-        choices = combos.map(([h, x]) => {
-          const c = base(R, sp);
-          if (h !== 'none') c.hat = { type: h, color: R.pick(COLOR_KEYS) };
-          if (x !== 'none') c.held = { type: x, color: R.pick(COLOR_KEYS) };
-          return c;
-        });
-      } else {
-        choices = R.sample(SPECIES_KEYS, n).map((sp) => (tier >= 1 ? decorate(R, base(R, sp)) : base(R, sp)));
-      }
-      return {
-        scene, choices, answer: ans, clue: {},
-        question: 'Cái bóng này là của bạn nào?',
-        hint: tier >= 2 ? 'Con nhìn xem bạn nào đội mũ, bạn nào cầm đồ nhé!' : 'Con nhìn hình dáng tai và đầu nhé!',
-        explain: `Đó là cái bóng của bạn ${nm(choices[ans].sp)}.`,
-        sig: choices.map((c) => c.sp + (c.hat ? c.hat.type : '') + (c.held ? c.held.type : '')).join(','),
-      };
-    },
-    ate(R, n, tier) {
-      const F = R.pick(FOODS), sps = R.sample(SPECIES_KEYS, n), ans = R.int(n);
-      const decoys = FOODS.filter((f) => Art.hex(f.c) !== Art.hex(F.c) && !(TOUGH[F.c] || []).includes(f.c));
-      const choices = sps.map((sp, i) => {
-        const c = tier >= 1 ? decorate(R, base(R, sp)) : base(R, sp);
-        if (i === ans) c.smear = F.c;
-        else if (tier >= 2 && R.chance(0.45)) c.smear = R.pick(decoys).c;
-        return c;
-      });
-      const scene = R.pick(['kitchen', 'kitchen', 'livingroom', 'garden']);
-      return {
-        scene, choices, answer: ans, clue: { food: F },
-        question: `Ai đã ăn vụng ${F.name}?`,
-        hint: 'Con nhìn miệng của các bạn nhé!',
-        explain: `Miệng bạn ${nm(sps[ans])} còn dính ${F.name}.`,
-        sig: F.name,
-      };
-    },
-    paint(R, n, tier) {
-      const C = R.pick(COLOR_KEYS), sps = R.sample(SPECIES_KEYS, n), ans = R.int(n);
-      const pool = COLOR_KEYS.filter((x) => x !== C && (tier >= 3 || !TOUGH[C].includes(x)));
-      const choices = sps.map((sp, i) => {
-        const c = tier >= 1 ? decorate(R, base(R, sp)) : base(R, sp);
-        if (i === ans) c.paint = C;
-        else if (tier >= 1 && R.chance(0.5)) c.paint = R.pick(pool);
-        return c;
-      });
-      return {
-        scene: R.pick(['classroom', 'livingroom', 'bedroom', 'kitchen']), choices, answer: ans, clue: { color: C },
-        question: `Ai đã làm đổ hộp sơn màu ${cn(C)}?`,
-        hint: 'Con nhìn tay của các bạn nhé!',
-        explain: `Tay bạn ${nm(sps[ans])} dính sơn màu ${cn(C)}.`,
-        sig: C,
-      };
-    },
-    mud(R, n, tier) {
-      const sps = R.sample(SPECIES_KEYS, n), ans = R.int(n);
-      const scene = R.pick(['livingroom', 'bedroom', 'classroom', 'kitchen', 'park', 'playground', 'garden']);
-      const outdoor = ['park', 'playground', 'garden'].includes(scene);
-      const choices = sps.map((sp, i) => {
-        const c = tier >= 1 ? decorate(R, base(R, sp)) : base(R, sp);
-        if (i === ans) c.shoes.muddy = true;
-        else if (tier >= 2 && R.chance(0.35)) c.paint = R.pick(COLOR_KEYS);
-        return c;
-      });
-      return {
-        scene, choices, answer: ans, clue: { outdoor },
-        question: outdoor ? 'Ai vừa giẫm vào vũng bùn?' : scene === 'classroom' ? 'Ai đã mang giày bẩn vào lớp?' : 'Ai đã mang giày bẩn vào nhà?',
-        hint: 'Con nhìn giày của các bạn nhé!',
-        explain: `Giày của bạn ${nm(sps[ans])} dính đầy bùn.`,
-        sig: '',
-      };
-    },
-    owner(R, n, tier) {
-      const key = R.pick(Object.keys(OWN)), O = OWN[key];
-      const C = R.pick(COLOR_KEYS), P = R.pick(['dots', 'stripes']);
-      const sps = R.sample(SPECIES_KEYS, n), ans = R.int(n);
-      const used = new Set([C + P]);
-      const choices = sps.map((sp, i) => {
-        const c = tier >= 1 ? decorate(R, base(R, sp)) : base(R, sp);
-        if (i === ans) { c.shirt = { color: C, pattern: P }; return c; }
-        let s;
-        do {
-          if (tier >= 2 && R.chance(0.5)) s = R.chance(0.5) ? { color: C, pattern: R.pick(['plain', P === 'dots' ? 'stripes' : 'dots']) } : { color: other(R, C), pattern: P };
-          else s = { color: other(R, C), pattern: R.pick(['plain', 'dots', 'stripes']) };
-        } while (used.has(s.color + s.pattern));
-        used.add(s.color + s.pattern);
-        c.shirt = s;
-        return c;
-      });
-      return {
-        scene: R.pick(O.scenes), choices, answer: ans, clue: { obj: key, color: C, pattern: P },
-        question: `${O.name} này là của bạn nào?`,
-        hint: 'Con nhìn áo của các bạn nhé!',
-        explain: `${O.name} giống hệt áo của bạn ${nm(sps[ans])}.`,
-        sig: key + C + P,
-      };
-    },
-    taken(R, n, tier) {
-      const key = R.pick(Object.keys(TAKEN)), T = TAKEN[key];
-      const k = Math.min(T.colors.length, key === 'apple' ? 3 : R.pick([3, 4, 4, 5]));
-      const colors = R.sample(T.colors, k), miss = R.int(k), C = colors[miss];
-      const sps = R.sample(SPECIES_KEYS, n), ans = R.int(n);
-      const remain = colors.filter((_, j) => j !== miss);
-      const kinds = Object.keys(TAKEN).filter((x) => x !== key);
-      const choices = sps.map((sp, i) => {
-        const c = tier >= 1 ? decorate(R, base(R, sp)) : base(R, sp);
-        if (i === ans) c.held = { type: key, color: C };
-        else if (tier >= 2 && R.chance(0.6)) c.held = { type: key, color: R.pick(T.colors.filter((x) => x !== C)) };
-        else if (tier >= 1 && R.chance(0.4)) c.held = { type: R.pick(kinds), color: R.pick(COLOR_KEYS) };
-        return c;
-      });
-      return {
-        scene: R.pick(T.scenes), choices, answer: ans, clue: { kind: key, colors, miss },
-        question: `Ai đã ${T.verb} ${T.name} màu ${cn(C)}?`,
-        hint: 'Con nhìn xem các bạn đang cầm gì nhé!',
-        explain: `Bạn ${nm(sps[ans])} đang cầm ${T.name} màu ${cn(C)}.`,
-        sig: key + colors.join('') + miss,
-        _remain: remain,
-      };
-    },
-    odd(R, n, tier) {
-      const key = R.pick(Object.keys(ODD)), O = ODD[key], C = R.pick(COLOR_KEYS);
-      const D = tier >= 2 && R.chance(0.6) ? R.pick(TOUGH[C]) : R.pick(COLOR_KEYS.filter((x) => x !== C && !TOUGH[C].includes(x)));
-      const sps = R.sample(SPECIES_KEYS, n), ans = R.int(n);
-      const choices = sps.map((sp, i) => {
-        const c = base(R, sp);
-        if (tier >= 1) decorate(R, c, ['hat']);
-        const col = i === ans ? D : C;
-        if (key === 'shirt') { c.shirt = { color: col, pattern: 'plain' }; if (c.bottom.color === C || c.bottom.color === D) c.bottom.color = R.pick(COLOR_KEYS.filter((x) => x !== C && x !== D)); }
-        if (key === 'hat') c.hat = { type: 'cap', color: col };
-        if (key === 'shoes') c.shoes = { color: col };
-        return c;
-      });
-      return {
-        scene: R.pick(O.scenes), choices, answer: ans, clue: { part: key, color: C },
-        question: O.q(C),
-        hint: `Con nhìn ${O.look} của từng bạn nhé!`,
-        explain: O.e(nm(sps[ans]), D),
-        sig: key + C + D,
-      };
-    },
-    lookalike(R, n, tier) {
-      const ans = R.int(n);
-      let choices;
-      if (tier === 0) choices = R.sample(SPECIES_KEYS, n).map((sp) => base(R, sp));
-      else if (tier === 1) {
-        const sp = R.pick(SPECIES_KEYS), cols = R.sample(COLOR_KEYS, n);
-        choices = cols.map((col) => { const c = base(R, sp); c.shirt = { color: col, pattern: 'plain' }; return c; });
-      } else {
-        const sp = R.pick(SPECIES_KEYS), proto = base(R, sp);
-        const feats = R.sample([
-          (c) => (c.hat = { type: 'cap', color: 'red' }), (c) => (c.hat = { type: 'beanie', color: 'blue' }),
-          (c) => (c.glasses = 'purple'), (c) => (c.scarf = 'green'), (c) => (c.bow = 'pink'),
-          (c) => (c.held = { type: 'balloon', color: 'yellow' }), (c) => (c.backpack = 'orange'), () => {},
-        ], n);
-        choices = feats.map((f) => { const c = JSON.parse(JSON.stringify(proto)); f(c); return c; });
-      }
-      return {
-        scene: R.pick(['livingroom', 'bedroom', 'classroom']), choices, answer: ans, clue: {},
-        question: 'Bạn nào giống hệt bạn trong bức ảnh?',
-        hint: tier >= 2 ? 'Con nhìn kỹ mũ, kính, khăn và đồ các bạn cầm nhé!' : 'Con so sánh màu áo nhé!',
-        explain: `Bạn trong ảnh chính là bạn ${nm(choices[ans].sp)} này.`,
-        sig: JSON.stringify(choices[ans]),
-      };
-    },
-  };
-  const TYPES = Object.keys(GEN);
-  const TYPE_LABEL = { lost: 'Đồ bị bỏ quên', shadow: 'Đoán bóng', ate: 'Ai ăn vụng', paint: 'Đổ sơn', mud: 'Giày bẩn', owner: 'Đồ của ai', taken: 'Ai lấy đồ', odd: 'Ai khác biệt', lookalike: 'Giống ảnh' };
+  function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function mk(rng) {
+    const R = { r: rng, int: (n) => Math.floor(rng() * n), pick: (a) => { if (!a.length) throw new Fail(); return a[Math.floor(rng() * a.length)]; }, chance: (p) => rng() < p };
+    R.shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    return R;
+  }
+  class Fail extends Error {}
+  const need = (x) => { if (!x) throw new Fail(); return x; };
 
-  function build(count = 1000) {
-    const out = [], seen = new Set();
-    const order = [];
-    const R0 = mk(mulberry32(20261126));
-    while (order.length < count) order.push(...R0.shuffle(TYPES));
+  function build(cat, count = 300) {
+    const sname = (sp) => cat.species[sp];
+    const bgs = Object.keys(cat.backgrounds), items = new Set(cat.items);
+    const outfit = Object.fromEntries(cat.outfits.map((o) => [o.id, o]));
+    const poses = [];
+    for (const o of cat.outfits) poses.push({ id: o.id, img: `assets/char/${o.id}.webp`, kind: 'base', o, sp: o.sp });
+    for (const v of cat.variants) if (outfit[v.outfit]) poses.push({ id: v.id, img: `assets/var/${v.id}.webp`, kind: v.kind, o: outfit[v.outfit], sp: outfit[v.outfit].sp, v });
+    const P = (f) => poses.filter(f);
+    const scene = (R, list) => { const ok = list.filter((s) => bgs.includes(s)); return need(ok.length ? R.pick(ok) : R.pick(bgs)); };
+    const it = (id) => need(items.has(id) && id);
+    // does pose p show mess kind k (optionally matching colour / food)?
+    const shows = (p, k, x) => {
+      const parts = p.kind === 'combo' ? p.v.parts : [p.kind];
+      if (!parts.includes(k)) return false;
+      if (x && k === 'paint') return p.v.color === x;
+      if (x && k === 'smear') return p.v.food === x;
+      return true;
+    };
+    const clean = (p) => ['base', 'acc', 'hold'].includes(p.kind);
+    function distract(R, culprit, n, pool, used = new Set([culprit.sp])) {
+      const out = [];
+      for (const p of R.shuffle(pool)) { if (out.length === n - 1) break; if (used.has(p.sp)) continue; used.add(p.sp); out.push(p); }
+      need(out.length === n - 1);
+      return out;
+    }
+    const place = (R, culprit, others) => { const ans = R.int(others.length + 1); const c = others.slice(); c.splice(ans, 0, culprit); return { choices: c, answer: ans }; };
+    const safe = (tier, kinds) => (p) => p.kind === 'base' || (tier >= 1 && kinds.includes(p.kind));
+    const messProp = (k, p) => (k === 'paint' ? { img: `paint-${p.v.color}`, x: 58, y: 76, w: 26 } : k === 'smear' ? { img: cat.foods.find((f) => f.id === p.v.food).prop, x: 50, y: 70, w: 22 } : MESS[k].prop);
+    const foodOf = (id) => cat.foods.find((f) => f.id === id);
+
+    const GEN = {
+      lost(R, n, tier) {
+        if (R.chance(0.4)) {
+          const cul = R.pick(P((p) => p.kind === 'oneshoe'));
+          const others = distract(R, cul, n, P(safe(tier, ['acc', 'hold', 'smear', 'paint'])));
+          const sc = scene(R, ['classroom', 'livingroom', 'bedroom', 'playground', 'hallway']);
+          return { scene: sc, ...place(R, cul, others), props: [{ img: it(`shoe-${cul.o.shoes}`), x: R.pick([42, 50, 58]), y: 76, w: 15, rot: -6, sparkle: true }],
+            question: `Bạn nào đã để quên một chiếc giày ở ${cat.backgrounds[sc]} vậy nhỉ?`, hint: 'Con nhìn kỹ chân của các bạn nhé!', explain: `Bạn ${sname(cul.sp)} chỉ còn một chiếc giày.`, key: 'shoe' };
+        }
+        const acc = R.pick(Object.keys(ACC)), A = ACC[acc];
+        const wearers = P((p) => p.kind === 'acc' && p.v.acc === acc);
+        const cul = R.pick(P((p) => p.kind === 'base' || (tier >= 2 && ['hold', 'smear'].includes(p.kind))));
+        const others = distract(R, cul, n, wearers);
+        const taken = new Set(others.map((p) => p.v.color));
+        const C = need(R.pick(cat.colors.filter((c) => (tier >= 2 || !taken.has(c)) && items.has(`${acc}-${c}`))));
+        const sc = scene(R, A.scenes);
+        return { scene: sc, ...place(R, cul, others), props: [{ img: `${acc}-${C}`, x: R.pick([42, 50, 58]), y: 76, w: acc === 'scarf' ? 20 : 15, sparkle: true }],
+          question: `Bạn nào đã để quên ${A.name} ở ${cat.backgrounds[sc]} vậy nhỉ?`, hint: `Con nhìn kỹ ${A.look} của các bạn nhé!`, explain: `Bạn ${sname(cul.sp)} không có ${NOUN[acc]}.`, key: acc + C };
+      },
+      shadow(R, n, tier) {
+        const sig = (p) => (p.kind === 'base' ? 'plain' : p.kind === 'acc' && ['cap', 'backpack'].includes(p.v.acc) ? p.v.acc : p.kind === 'hold' ? 'hold-' + p.v.hold : null);
+        let choices;
+        if (tier >= 2) {
+          const sp = R.pick(cat.outfits).sp, seen = new Set();
+          choices = [];
+          for (const p of R.shuffle(P((p) => p.sp === sp && sig(p)))) { if (seen.has(sig(p))) continue; seen.add(sig(p)); choices.push(p); if (choices.length === n) break; }
+          need(choices.length === n);
+        } else {
+          const first = R.pick(P(safe(tier, ['acc', 'hold'])));
+          choices = [first, ...distract(R, first, n, P(safe(tier, ['acc', 'hold'])))];
+        }
+        const ans = R.int(n), t = choices[ans];
+        return { scene: scene(R, ['bedroom', 'livingroom', 'classroom']), choices, answer: ans, silhouette: t.img,
+          question: 'Cái bóng này là của bạn nào?', hint: tier >= 2 ? 'Con nhìn xem bạn nào đội mũ, bạn nào cầm đồ nhé!' : 'Con nhìn hình dáng tai và đầu nhé!', explain: `Đó là cái bóng của bạn ${sname(t.sp)}.`, key: choices.map((c) => c.id).join() };
+      },
+      ate(R, n, tier) {
+        const cul = R.pick(P((p) => p.kind === 'smear')), F = foodOf(cul.v.food);
+        let pool = P(safe(tier, ['acc', 'hold', 'mud']));
+        if (tier >= 2) pool = pool.concat(P((p) => p.kind === 'smear' && p.v.food !== F.id));
+        const others = distract(R, cul, n, pool);
+        const sc = scene(R, ['kitchen', 'kitchen', 'livingroom', 'garden']);
+        return { scene: sc, ...place(R, cul, others), props: [{ img: it(F.prop), x: 50, y: sc === 'kitchen' ? 62 : 74, w: 22, sparkle: true }],
+          question: `Ai đã ăn vụng ${F.vi}?`, hint: 'Con nhìn miệng của các bạn nhé!', explain: `Miệng bạn ${sname(cul.sp)} còn dính ${F.vi}.`, key: F.id };
+      },
+      paint(R, n, tier) {
+        const cul = R.pick(P((p) => p.kind === 'paint')), C = cul.v.color;
+        let pool = P(safe(tier, ['acc', 'hold', 'mud', 'smear']));
+        if (tier >= 1) pool = pool.concat(P((p) => p.kind === 'paint' && p.v.color !== C && (tier >= 3 || !TOUGH[C].includes(p.v.color))));
+        const others = distract(R, cul, n, pool);
+        return { scene: scene(R, MESS.paint.scenes.concat('kitchen')), ...place(R, cul, others), props: [{ img: it(`paint-${C}`), x: R.pick([40, 55, 62]), y: 76, w: 26 }],
+          question: `Ai đã làm đổ hộp sơn màu ${VI[C]}?`, hint: 'Con nhìn tay của các bạn nhé!', explain: `Tay bạn ${sname(cul.sp)} dính sơn màu ${VI[C]}.`, key: C };
+      },
+      // mud / wet / leaves / flour
+      mess(R, n, tier) {
+        const k = R.pick(['mud', 'mud', 'wet', 'leaves', 'flour']), M = MESS[k];
+        const cul = R.pick(P((p) => p.kind === k));
+        let pool = P(safe(tier, ['acc', 'hold', 'smear']));
+        if (tier >= 2) pool = pool.concat(P((p) => ['wet', 'leaves', 'flour', 'mud', 'paint'].includes(p.kind) && p.kind !== k));
+        const others = distract(R, cul, n, pool);
+        const sc = scene(R, M.scenes), outdoor = ['park', 'playground', 'garden', 'autumn'].includes(sc);
+        const q = k === 'mud' ? (outdoor ? 'Ai vừa giẫm vào vũng bùn?' : sc === 'classroom' ? 'Ai đã mang giày bẩn vào lớp?' : 'Ai đã mang giày bẩn vào nhà?') : `Ai vừa ${M.did}?`;
+        return { scene: sc, ...place(R, cul, others), props: [{ ...M.prop, img: it(M.prop.img) }], question: q, hint: M.hint, explain: M.ex(sname(cul.sp)), key: k };
+      },
+      owner(R, n, tier) {
+        const cul = R.pick(P((p) => p.o.pattern !== 'plain' && clean(p) && (tier >= 1 || p.kind === 'base')));
+        const o = cul.o, um = it(`umbrella-${o.shirt}-${o.pattern}`);
+        const differs = (p) => p.o.shirt !== o.shirt || p.o.pattern !== o.pattern;
+        let pool = P((p) => differs(p) && safe(tier, ['acc', 'hold'])(p));
+        if (tier >= 2) { const near = pool.filter((p) => p.o.shirt === o.shirt || p.o.pattern === o.pattern); if (near.length >= n) pool = near.concat(pool.slice(0, 6)); }
+        const others = distract(R, cul, n, pool);
+        return { scene: scene(R, ['livingroom', 'park', 'classroom', 'hallway']), ...place(R, cul, others), props: [{ img: um, x: 50, y: 72, w: 28, rot: -10, sparkle: true }],
+          question: 'Chiếc ô này là của bạn nào?', hint: 'Con nhìn áo của các bạn nhé!', explain: `Chiếc ô giống hệt áo của bạn ${sname(cul.sp)}.`, key: um };
+      },
+      taken(R, n, tier) {
+        const cul = R.pick(P((p) => p.kind === 'hold')), K = cul.v.hold, C = cul.v.color, T = TAKEN[K];
+        const avail = cat.holdColors[K].filter((c) => c !== C && items.has(`${K}-${c}`));
+        const shown = R.shuffle(avail).slice(0, K === 'apple' ? 2 : R.pick([2, 3, 3, 4]));
+        const row = R.shuffle([...shown, null]);
+        let pool = P(safe(tier, ['acc', 'smear']));
+        if (tier >= 1) pool = pool.concat(P((p) => p.kind === 'hold' && p.v.hold !== K));
+        if (tier >= 2) pool = pool.concat(P((p) => p.kind === 'hold' && p.v.hold === K && p.v.color !== C));
+        const others = distract(R, cul, n, pool);
+        const span = 44, x0 = 50 - span / 2;
+        const props = row.map((c, i) => ({ x: x0 + (row.length > 1 ? (span * i) / (row.length - 1) : span / 2), y: K === 'balloon' ? 44 : 64, w: K === 'balloon' ? 10 : 9, ...(c ? { img: `${K}-${c}` } : { missing: true }) }));
+        return { scene: scene(R, T.scenes), ...place(R, cul, others), props,
+          question: `Ai đã ${T.verb} ${T.name} màu ${VI[C]}?`, hint: 'Con nhìn xem các bạn đang cầm gì nhé!', explain: `Bạn ${sname(cul.sp)} đang cầm ${T.name} màu ${VI[C]}.`, key: K + C + row.join() };
+      },
+      odd(R, n, tier) {
+        const C = R.pick(cat.colors);
+        const same = P((p) => p.o.shirt === C && safe(tier, ['acc', 'hold'])(p));
+        const Ds = tier >= 2 && R.chance(0.6) ? TOUGH[C] : cat.colors.filter((d) => d !== C && !TOUGH[C].includes(d));
+        const cul = R.pick(need(P((p) => Ds.includes(p.o.shirt) && safe(tier, ['acc', 'hold'])(p))));
+        const others = distract(R, cul, n, same);
+        return { scene: scene(R, ['classroom', 'playground', 'park']), ...place(R, cul, others), props: [{ img: it(`tshirt-${C}`), x: 50, y: 42, w: 20, card: true }],
+          question: `Cả lớp đều mặc áo màu ${VI[C]}. Bạn nào mặc áo khác màu?`, hint: 'Con nhìn màu áo của từng bạn nhé!', explain: `Bạn ${sname(cul.sp)} mặc áo màu ${VI[cul.o.shirt]}.`, key: C };
+      },
+      lookalike(R, n, tier) {
+        let choices;
+        if (tier === 0) { const f = R.pick(P((p) => p.kind === 'base')); choices = [f, ...distract(R, f, n, P((p) => p.kind === 'base'))]; }
+        else if (tier === 1) { const sp = R.pick(cat.outfits).sp; choices = R.shuffle(P((p) => p.sp === sp && clean(p))).slice(0, n); }
+        else { const o = R.pick(cat.outfits); choices = R.shuffle(P((p) => p.o.id === o.id)).slice(0, n); }
+        need(choices.length === n);
+        const ans = R.int(n);
+        return { scene: scene(R, ['livingroom', 'bedroom', 'classroom']), choices, answer: ans, photo: choices[ans].img,
+          question: 'Bạn nào giống hệt bạn trong bức ảnh?', hint: tier >= 2 ? 'Con nhìn kỹ từng chi tiết: tay, miệng, giày, đồ cầm nhé!' : 'Con so sánh quần áo nhé!', explain: `Bạn trong ảnh chính là bạn ${sname(choices[ans].sp)} này.`, key: '' };
+      },
+
+      // ---------- harder types ----------
+      // everyone is messy except one
+      negative(R, n, tier) {
+        const k = R.pick(['mud', 'paint', 'smear', 'wet', 'leaves', 'flour']), M = MESS[k];
+        const cul = R.pick(P((p) => (tier >= 2 ? !shows(p, k) && p.kind !== 'combo' : clean(p))));
+        const others = distract(R, cul, n, P((p) => shows(p, k)));
+        return { scene: scene(R, M.scenes), ...place(R, cul, others), props: [],
+          question: `Bạn nào KHÔNG ${M.not}?`, hint: `Bạn nào cũng ${M.not}, chỉ có một bạn là không. Con tìm thử nhé!`, explain: `Chỉ có bạn ${sname(cul.sp)} là không ${M.not}.`, key: k };
+      },
+      // only feet (behind a curtain) or only the head (behind a bush) are visible
+      peek(R, n, tier) {
+        const mode = R.pick(['feet', 'head']);
+        let cul, others;
+        if (mode === 'feet') {
+          cul = R.pick(P(clean));
+          const look = (p) => p.o.shoes + p.o.bottomColor + p.o.bottom;
+          const pool = P((p) => clean(p) && look(p) !== look(cul) && (tier >= 2 || p.o.shoes !== cul.o.shoes));
+          others = distract(R, cul, n, pool);
+        } else if (tier >= 2) {
+          const sig = (p) => (p.kind === 'acc' && ['cap', 'glasses'].includes(p.v.acc) ? p.v.acc : p.kind === 'smear' ? 'smear' : p.kind === 'hold' && p.v.hold === 'balloon' ? 'balloon' : p.kind === 'base' ? 'plain' : null);
+          const sp = R.pick(cat.outfits).sp, seen = new Set(), ch = [];
+          for (const p of R.shuffle(P((p) => p.sp === sp && sig(p)))) { if (seen.has(sig(p))) continue; seen.add(sig(p)); ch.push(p); }
+          need(ch.length >= n);
+          cul = ch[0]; others = ch.slice(1, n);
+        } else {
+          cul = R.pick(P(clean)); others = distract(R, cul, n, P(clean));
+        }
+        const sc = scene(R, mode === 'feet' ? ['livingroom', 'bedroom', 'classroom'] : ['park', 'garden', 'playground', 'autumn']);
+        return { scene: sc, ...place(R, cul, others), peek: { img: cul.img, mode },
+          question: mode === 'feet' ? 'Có một bạn đang trốn sau rèm cửa. Đó là bạn nào?' : 'Có một bạn đang trốn sau bụi cây. Đó là bạn nào?',
+          hint: mode === 'feet' ? 'Con nhìn màu giày và quần váy của bạn ấy nhé!' : 'Con nhìn tai, mặt và mũ của bạn ấy nhé!',
+          explain: `Bạn ${sname(cul.sp)} đang trốn ở đó!`, key: mode };
+      },
+      // who is missing from the photo
+      photoMissing(R, n, tier) {
+        let all;
+        if (tier >= 2) {
+          // two friends of the same species in different outfits: one in the photo, one not
+          const sp = R.pick(cat.outfits).sp;
+          const pair = R.shuffle(P((p) => p.sp === sp && p.kind === 'base'));
+          need(pair.length >= 2);
+          all = [pair[0], pair[1], ...distract(R, pair[0], n - 1, P(clean), new Set([sp]))];
+        } else { const f = R.pick(P(clean)); all = [f, ...distract(R, f, n, P(clean))]; }
+        const ans = tier >= 2 ? 1 : R.int(n);
+        const missing = all[ans], inPhoto = R.shuffle(all.filter((_, i) => i !== ans));
+        const choices = R.shuffle(all);
+        return { scene: scene(R, ['livingroom', 'bedroom', 'classroom']), choices, answer: choices.indexOf(missing), group: inPhoto.map((p) => p.img),
+          question: 'Đây là ảnh chụp các bạn hôm qua. Bạn nào KHÔNG có trong ảnh?', hint: 'Con so sánh từng bạn với bức ảnh nhé!', explain: `Bạn ${sname(missing.sp)} không có trong ảnh.`, key: all.map((p) => p.id).sort().join() };
+      },
+      // before / after: what did they lose?  (choices are items)
+      whatLost(R, n, tier) {
+        const cul = R.pick(P((p) => p.kind === 'acc' || p.kind === 'hold' || p.kind === 'oneshoe'));
+        const base = P((p) => p.kind === 'base' && p.o.id === cul.o.id)[0];
+        let before, after, ans;
+        if (cul.kind === 'oneshoe') { before = base; after = cul; ans = `shoe-${cul.o.shoes}`; }
+        else { before = cul; after = base; ans = cul.kind === 'acc' ? `${cul.v.acc}-${cul.v.color}` : `${cul.v.hold}-${cul.v.color}`; }
+        it(ans);
+        const [type, color] = ans.split('-');
+        const pool = cat.items.filter((x) => /^(cap|backpack|scarf|glasses|shoe|balloon|flower|apple|lollipop)-/.test(x) && x !== ans);
+        const near = pool.filter((x) => (tier >= 2 ? x.startsWith(type + '-') || x.endsWith('-' + color) : !x.endsWith('-' + color) && !x.startsWith(type + '-')));
+        const others = R.shuffle(near.length >= n - 1 ? near : pool).slice(0, n - 1);
+        need(others.length === n - 1);
+        const ai = R.int(n), list = others.slice(); list.splice(ai, 0, ans);
+        const nm = (x) => { const [t, c] = x.split('-'); return `${NOUN[t]} màu ${VI[c]}`; };
+        const verb = cul.kind === 'hold' ? 'làm mất' : 'để quên';
+        return { scene: scene(R, ['classroom', 'park', 'livingroom', 'playground']), choiceKind: 'item', choices: list.map((x) => ({ img: `assets/item/${x}.webp`, name: nm(x) })), answer: ai,
+          beforeAfter: [before.img, after.img],
+          question: `Buổi sáng bạn ${sname(cul.sp)} còn đủ đồ. Bây giờ bạn ấy đã ${verb} cái gì?`, hint: 'Con so sánh hai bức tranh: sáng nay và bây giờ nhé!', explain: `Bạn ${sname(cul.sp)} đã ${verb} ${nm(ans)}.`, key: cul.id };
+      },
+      // how many are messy?  (choices are numbers)
+      count(R, n, tier) {
+        const k = R.pick(['mud', 'paint', 'smear', 'wet', 'leaves', 'flour']), M = MESS[k];
+        const m = tier >= 2 ? 5 : 4, dirty = 1 + R.int(m - (tier >= 2 ? 0 : 1));
+        const used = new Set(), crowd = [];
+        for (const p of R.shuffle(P((p) => shows(p, k)))) { if (crowd.length === dirty) break; if (used.has(p.sp)) continue; used.add(p.sp); crowd.push(p); }
+        for (const p of R.shuffle(P((p) => (tier >= 2 ? !shows(p, k) && p.kind !== 'combo' : clean(p))))) { if (crowd.length === m) break; if (used.has(p.sp)) continue; used.add(p.sp); crowd.push(p); }
+        need(crowd.length === m);
+        const lo = Math.max(1, Math.min(dirty - R.int(n), m + 1 - n)), nums = Array.from({ length: n }, (_, i) => lo + i);
+        return { scene: scene(R, M.scenes), crowd: R.shuffle(crowd).map((p) => p.img), choiceKind: 'number', choices: nums.map((x) => ({ num: x, name: String(x) })), answer: nums.indexOf(dirty),
+          question: `Có bao nhiêu bạn ${M.not}?`, hint: 'Con chỉ tay đếm từng bạn một nhé!', explain: `Có ${dirty} bạn ${M.not}.`, key: k + crowd.map((p) => p.id).sort().join() };
+      },
+      // an eye-witness owl describes 2–3 features
+      witness(R, n, tier) {
+        const k = tier >= 3 ? 3 : 2;
+        const attrsOf = (p) => {
+          const a = [['shirt', p.o.shirt], ['shoes', p.o.shoes]];
+          if (p.kind === 'acc') a.push(['acc', p.v.acc + '-' + p.v.color]);
+          if (p.kind === 'hold') a.push(['hold', p.v.hold + '-' + p.v.color]);
+          return a;
+        };
+        const cul = R.pick(P((p) => p.kind === 'acc' || p.kind === 'hold'));
+        const all = attrsOf(cul), extra = all.find((a) => a[0] === 'acc' || a[0] === 'hold');
+        const want = k === 3 ? all : [all[0], R.chance(0.5) ? extra : all[1]];
+        const has = (p) => { const m = new Map(attrsOf(p)); return want.filter(([t, v]) => m.get(t) === v || (t === 'acc' && attrsOf(p).some((x) => x[0] === 'acc' && x[1] === v)) ).length; };
+        const pool = P((p) => clean(p) && has(p) < want.length);
+        const near = pool.filter((p) => has(p) === want.length - 1);
+        const used = new Set([cul.sp]), others = [];
+        for (const p of R.shuffle(near).concat(R.shuffle(pool))) { if (others.length === n - 1) break; if (used.has(p.sp)) continue; used.add(p.sp); others.push(p); }
+        need(others.length === n - 1 && others.filter((p) => has(p) === want.length - 1).length >= Math.min(2, n - 1));
+        const icon = ([t, v]) => (t === 'shirt' ? `tshirt-${v}` : t === 'shoes' ? `shoe-${v}` : v);
+        const phrase = ([t, v]) => { if (t === 'shirt') return `mặc áo màu ${VI[v]}`; if (t === 'shoes') return `đi giày màu ${VI[v]}`; const [a, c] = v.split('-'); return t === 'acc' ? `${ACC[a].wear} màu ${VI[c]}` : `cầm ${NOUN[a]} màu ${VI[c]}`; };
+        want.forEach((w) => it(icon(w)));
+        const crime = R.pick(CRIMES), words = want.map(phrase);
+        const said = words.length === 2 ? `${words[0]} và ${words[1]}` : `${words[0]}, ${words[1]} và ${words[2]}`;
+        return { scene: scene(R, ['livingroom', 'classroom', 'kitchen', 'park', 'garden']), ...place(R, cul, others), witness: want.map((w) => `assets/item/${icon(w)}.webp`),
+          question: `Bác Cú Mèo nhìn thấy bạn ${crime}: bạn ấy ${said}. Đó là ai?`, hint: 'Con tìm bạn có ĐỦ tất cả các đồ bác Cú Mèo kể nhé!', explain: `Chỉ có bạn ${sname(cul.sp)} ${said}.`, key: want.flat().join() };
+      },
+      // two clues at once: only the culprit shows both
+      twoClue(R, n, tier) {
+        const cul = R.pick(P((p) => p.kind === 'combo'));
+        const [a, b] = cul.v.parts, x = (k) => (k === 'paint' ? cul.v.color : k === 'smear' ? cul.v.food : undefined);
+        const onlyA = P((p) => p.kind !== 'combo' && shows(p, a, x(a))), onlyB = P((p) => p.kind !== 'combo' && shows(p, b, x(b)));
+        const used = new Set([cul.sp]);
+        const dA = distract(R, cul, 2, onlyA, used), dB = distract(R, cul, 2, onlyB, used);
+        const rest = n - 3 > 0 ? distract(R, cul, n - 2, tier >= 3 ? P((p) => p.kind !== 'combo' && !shows(p, a) && !shows(p, b) && !clean(p)) : P(clean), used) : [];
+        const did = (k) => (k === 'paint' ? `làm đổ sơn màu ${VI[cul.v.color]}` : k === 'smear' ? `ăn vụng ${foodOf(cul.v.food).vi}` : 'giẫm bùn');
+        const pa = messProp(a, cul), pb = messProp(b, cul);
+        const props = [{ ...pa, img: it(pa.img), x: 30, y: 74 }, { ...pb, img: it(pb.img), x: 70, y: pb.img === 'mudprints' ? 82 : 74, w: pb.img === 'mudprints' ? 40 : pb.w }];
+        return { scene: scene(R, ['livingroom', 'kitchen', 'classroom']), ...place(R, cul, [...dA, ...dB, ...rest]), props,
+          question: `Ai vừa ${did(a)}, lại còn ${did(b)}?`, hint: 'Thủ phạm có CẢ HAI dấu vết đấy!', explain: `Bạn ${sname(cul.sp)} có cả hai dấu vết.`, key: cul.id };
+      },
+    };
+
+    const TYPES = Object.keys(GEN);
+    const out = [], seen = new Set(), R0 = mk(mulberry32(20261126));
+    let prev = '';
     for (let i = 0; i < count; i++) {
-      const tier = i < 200 ? 0 : i < 500 ? 1 : i < 800 ? 2 : 3;
-      const n = i < 200 ? 3 : 4;
-      const type = order[i];
-      let p, attempt = 0;
-      do {
-        const R = mk(mulberry32(i * 7919 + 13 + attempt * 104729));
-        p = GEN[type](R, n, tier);
-        p.sig = [type, p.scene, p.choices[p.answer].sp, p.sig, p.choices.map((c) => c.sp).sort().join('')].join('|');
-        attempt++;
-      } while (seen.has(p.sig) && attempt < 50);
-      seen.add(p.sig);
-      delete p._remain;
-      out.push({ id: i + 1, type, label: TYPE_LABEL[type], tier, ...p });
+      const lv = i + 1, tier = lv <= 30 ? 0 : lv <= 90 ? 1 : lv <= 180 ? 2 : 3, n = lv <= 30 ? 3 : lv <= 180 ? 4 : 5;
+      const open = TYPES.filter((t) => lv >= SCHEDULE[t][0] && t !== prev);
+      const w = open.map((t) => (lv > 180 ? SCHEDULE[t][2] : SCHEDULE[t][1]) * (lv - SCHEDULE[t][0] < 10 && SCHEDULE[t][0] > 1 ? 3 : 1));
+      const order = [];
+      { const ww = w.slice(), oo = open.slice(); while (oo.length) { let r = R0.r() * ww.reduce((s, x) => s + x, 0), j = 0; while (r > ww[j]) r -= ww[j++]; order.push(oo[j]); oo.splice(j, 1); ww.splice(j, 1); } }
+      let p = null;
+      for (let attempt = 0; attempt < 200 && !p; attempt++) {
+        const type = order[Math.floor(attempt / 25) % order.length];
+        try {
+          const q = GEN[type](mk(mulberry32(lv * 7919 + attempt * 104729)), q_n(type, n), tier);
+          const sig = [type, q.scene, q.key, q.choices.map((c) => c.id || c.img || c.num).sort().join(), q.answer].join('|');
+          if (seen.has(sig)) continue;
+          seen.add(sig);
+          p = { id: lv, type, label: LABEL[type], tier, scene: q.scene, question: q.question, hint: q.hint, explain: q.explain, answer: q.answer, choiceKind: q.choiceKind || 'char',
+            choices: q.choices.map((c) => (c.o ? { img: c.img, name: sname(c.sp) } : c)),
+            props: (q.props || []).map((x) => (x.img ? { ...x, img: `assets/item/${x.img}.webp` } : x)),
+            silhouette: q.silhouette, photo: q.photo, peek: q.peek, group: q.group, beforeAfter: q.beforeAfter, crowd: q.crowd, witness: q.witness };
+          prev = type;
+        } catch (e) { if (!(e instanceof Fail)) throw e; }
+      }
+      if (!p) throw new Error('could not build puzzle ' + lv);
+      out.push(p);
     }
     return out;
   }
+  // number of answer choices per type (count/whatLost stay at 4 so cards stay big)
+  const q_n = (type, n) => (type === 'count' || type === 'whatLost' ? Math.min(n, 4) : n);
 
-  // ----------------------------------------------------------------- render scene
-  function sceneExtras(p) {
-    const k = p.clue;
-    switch (p.type) {
-      case 'lost': {
-        const [x, y] = k.spot;
-        const s = { shoe: 1.5, cap: 1.3, beanie: 1.3, backpack: 1.2, scarf: 1.5, glasses: 1.5, bow: 1.5 }[k.item];
-        return `<ellipse cx="${x}" cy="${y + 30}" rx="60" ry="10" fill="#000" opacity=".12"/>` + item(k.item, k.color, x, y, s) + sparkle(x, y - 10);
-      }
-      case 'shadow': return Art.PROPS.spotlight(p.choices[p.answer], 400, 225);
-      case 'ate': {
-        const F = k.food;
-        let s = '', x = 430, y = 258;
-        if (p.scene !== 'kitchen') { s += PROPS.table(400, 340); x = 410; y = 328; }
-        if (F.prop === 'cake') s += PROPS.cake(F.c, x, y);
-        else if (F.prop === 'bowl') s += PROPS.bowl(F.c, x, y);
-        else if (F.prop === 'jar') s += PROPS.jar(F.c, x, y);
-        else s += PROPS.melon(x, y - 30);
-        return s + sparkle(x - 10, y - 80);
-      }
-      case 'paint': return PROPS.paintSpill(k.color, 540, 380);
-      case 'mud':
-        return k.outdoor ? PROPS.mudTrail(500, 370) : [0, 1, 2, 3, 4].map((j) => `<g transform="translate(${620 - j * 90} ${360 + (j % 2) * 34}) rotate(-80)"><path d="M-22 -10 Q-24 -22 0 -22 Q24 -22 22 -6 L22 10 Q0 18 -22 10 Z" fill="#7a5230" opacity=".85"/><circle cx="-26" cy="0" r="4" fill="#7a5230"/></g>`).join('');
-      case 'owner': {
-        const s = { umbrella: 2, kite: 1.6, towel: 1.9 }[k.obj];
-        const y = k.obj === 'kite' ? 280 : 360;
-        return item(k.obj, k.color, 400, y, s, k.obj === 'umbrella' ? -12 : 0, k.pattern) + sparkle(400, y - 50 * s + 20);
-      }
-      case 'taken': return takenProp(k.kind, k.colors, k.miss);
-      case 'odd': return PROPS.hanger(k.part, k.color, 400, 190);
-      case 'lookalike': return PROPS.photo(p.choices[p.answer], 400, 200);
-    }
-    return '';
-  }
-  function sceneSVG(p, attrs) { return Art.sceneSVG(p.scene, sceneExtras(p), attrs); }
-
-  // full composite image (scene + lineup + caption) for export
-  function compositeSVG(p) {
-    const n = p.choices.length, W = 800, cardW = 180, gap = (W - n * cardW) / (n + 1);
-    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 820" width="${W}" height="820">${Art.defs()}<rect width="${W}" height="820" fill="#fffaf0"/>`;
-    s += `<text x="400" y="42" text-anchor="middle" font-family="Nunito, Arial, sans-serif" font-size="${p.question.length > 52 ? 19 : p.question.length > 40 ? 22 : 26}" font-weight="800" fill="#5a4636">${p.id}. ${p.question}</text>`;
-    s += `<g transform="translate(0 60)"><svg width="800" height="450" viewBox="0 0 800 450">${Art.SCENES[p.scene].draw()}${sceneExtras(p)}</svg></g>`;
-    p.choices.forEach((c, i) => {
-      const x = gap + i * (cardW + gap);
-      s += `<rect x="${x}" y="530" width="${cardW}" height="270" rx="22" fill="#fff" stroke="#f0d9b5" stroke-width="4"/>`;
-      s += `<svg x="${x + 10}" y="540" width="${cardW - 20}" height="220" viewBox="-30 -40 260 290">${Art.character(c)}</svg>`;
-      s += `<text x="${x + cardW / 2}" y="788" text-anchor="middle" font-family="Nunito, Arial, sans-serif" font-size="20" font-weight="700" fill="#5a4636">${SPECIES[c.sp].name}</text>`;
-    });
-    return s + '</svg>';
-  }
-
-  const api = { build, sceneSVG, compositeSVG, TYPES, TYPE_LABEL };
+  const api = { build, LABEL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Puzzles = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -53,7 +53,46 @@
   .stage { flex: 1; min-height: 0; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr); }
   @media (min-aspect-ratio: 4/3) { .stage { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); grid-template-rows: 1fr; } }
   .scene { min-height: 0; display: grid; place-items: center; }
-  .scene svg { display: block; border-radius: 26px; border: 4px solid #fff; box-shadow: 0 6px 0 var(--line), 0 10px 30px rgba(120, 80, 30, .12); background: #fff; }
+  .board { position: relative; overflow: hidden; border-radius: 26px; border: 4px solid #fff; box-shadow: 0 6px 0 var(--line), 0 10px 30px rgba(120, 80, 30, .12); background: #f3e6cf; container-type: inline-size; }
+  .board > .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .prop { position: absolute; transform: translate(-50%, -50%); filter: drop-shadow(0 .6cqw .5cqw rgba(90, 60, 30, .28)); }
+  .prop.card { background: rgba(255, 255, 255, .88); border-radius: 2cqw; padding: 1.2cqw; border: .4cqw solid #f0d9b5; }
+  .missing { position: absolute; transform: translate(-50%, -50%); aspect-ratio: 1; border: .5cqw dashed #5a4636; border-radius: 50%; background: rgba(255, 255, 255, .55); display: grid; place-items: center; font-weight: 900; font-size: 4cqw; }
+  .spark { position: absolute; transform: translate(-50%, -100%); width: 14cqw; }
+  .spot { position: absolute; left: 50%; top: 52%; width: 46cqw; height: 46cqw; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(255, 249, 210, .95) 55%, rgba(255, 249, 210, 0) 72%); }
+  .sil { position: absolute; left: 50%; top: 52%; height: 78%; transform: translate(-50%, -50%); filter: brightness(0) opacity(.78); }
+  .photo { position: absolute; left: 50%; top: 45%; width: 24cqw; aspect-ratio: 3/4; transform: translate(-50%, -50%) rotate(-2deg); background: #fffbe8; border: 1.6cqw solid #c98b55; border-radius: 1cqw; box-shadow: 0 1cqw 2cqw rgba(0, 0, 0, .2); display: grid; place-items: center; padding: 1cqw; }
+  .photo img { max-width: 100%; max-height: 100%; }
+  .pick img { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); object-fit: contain; display: block; }
+  .pick.item img { inset: 14%; width: 72%; height: 72%; }
+  .pick .numb { font-size: clamp(40px, 7vw, 84px); font-weight: 900; color: #ff7a45; line-height: 1; display: grid; place-items: center; gap: 6px; }
+  .pick .dots { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; max-width: 120px; }
+  .pick .dots i { width: 14px; height: 14px; border-radius: 50%; background: #ffc400; display: block; }
+  .choices.n5 { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row; }
+  @media (min-aspect-ratio: 4/3) { .choices.n5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  /* peek: only part of a character is visible */
+  .peekbox { position: absolute; left: 50%; bottom: 6%; height: 70%; transform: translateX(-50%); }
+  .peekbox img { height: 100%; display: block; }
+  .peekbox.feet img { clip-path: inset(64% 0 0 0); }
+  .peekbox.head img { clip-path: inset(0 0 56% 0); }
+  .curtain { position: absolute; left: 50%; top: 0; width: 40cqw; height: 72%; transform: translateX(-50%); border-radius: 0 0 2cqw 2cqw;
+    background: repeating-linear-gradient(90deg, #d9534f 0 3cqw, #c4413d 3cqw 4cqw, #e8706b 4cqw 6cqw); box-shadow: 0 1cqw 1.5cqw rgba(0,0,0,.25); }
+  .curtain::before { content: ''; position: absolute; left: -2cqw; right: -2cqw; top: 0; height: 3cqw; background: #8d5a3b; border-radius: 1cqw; }
+  .curtainimg { position: absolute; left: 50%; top: 0; width: 36cqw; height: 73%; transform: translateX(-50%); object-fit: fill; }
+  .bushimg { position: absolute; left: 50%; bottom: -4%; width: 52cqw; height: 52%; transform: translateX(-50%); object-fit: fill; }
+  .bush { position: absolute; left: 50%; bottom: 0; width: 48cqw; height: 50%; transform: translateX(-50%); }
+  .bush i { position: absolute; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #9ed67f, #5fae4f 70%); border: .35cqw solid #4c8a40; }
+  /* group photo / before-after / crowd / witness */
+  .frame { position: absolute; background: #fffbe8; border: 1.4cqw solid #c98b55; border-radius: 1cqw; box-shadow: 0 1cqw 2cqw rgba(0,0,0,.2); display: flex; align-items: flex-end; justify-content: center; gap: .5cqw; padding: 1cqw; }
+  .frame img { height: 100%; min-width: 0; object-fit: contain; }
+  .frame .cap { position: absolute; top: -4.2cqw; left: 50%; transform: translateX(-50%); background: #fff; border: .3cqw solid #f0d9b5; border-radius: 2cqw; padding: .2cqw 1.6cqw; font-size: 2.4cqw; font-weight: 900; white-space: nowrap; }
+  .arrow { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 7cqw; font-weight: 900; color: #ff7a45; }
+  .crowd { position: absolute; left: 3%; right: 3%; bottom: 4%; height: 62%; display: flex; justify-content: space-around; align-items: flex-end; }
+  .crowd img { height: 100%; min-width: 0; object-fit: contain; flex: 1; }
+  .owl { position: absolute; left: 3%; bottom: 6%; width: 18cqw; }
+  .bubble2 { position: absolute; left: 22%; top: 10%; right: 6%; background: #fff; border: .5cqw solid #5a4636; border-radius: 4cqw; padding: 1.5cqw; display: flex; justify-content: space-around; align-items: center; gap: 1cqw; }
+  .bubble2::after { content: ''; position: absolute; left: 3cqw; bottom: -3.4cqw; border: 1.7cqw solid transparent; border-top-color: #5a4636; }
+  .bubble2 img { height: 13cqw; max-width: 30%; object-fit: contain; }
   .choices { min-height: 0; min-width: 0; display: grid; gap: 12px; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   .scene, .pick, .q { min-width: 0; }
   @media (max-aspect-ratio: 4/3) { .choices.n4 { grid-auto-flow: row; grid-template-columns: 1fr 1fr; } #play { padding: 8px 10px 10px; } .round { width: 46px; height: 46px; } .stage { grid-template-rows: minmax(0, .8fr) minmax(0, 1.2fr); } }
@@ -90,16 +129,15 @@
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" id="globaldefs"></svg>
 
 <section id="home" class="screen on">
   <div class="logo">
     <svg viewBox="0 0 100 100"><circle cx="42" cy="42" r="30" fill="#bfe6ff" stroke="#5a4636" stroke-width="7"/><circle cx="34" cy="34" r="8" fill="#fff"/><path d="M64 64 L88 88" stroke="#5a4636" stroke-width="13" stroke-linecap="round"/><path d="M64 64 L88 88" stroke="#ff8a5b" stroke-width="7" stroke-linecap="round"/></svg>
     <h1>Thám Tử Nhí</h1>
   </div>
-  <p class="sub">1000 câu đố quan sát cho bé 3 tuổi</p>
+  <p class="sub">300 câu đố thám tử cho bé 3–5 tuổi</p>
   <button class="bigplay" id="continue"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M7 4 L20 12 L7 20 Z" fill="#fff"/></svg><span>Chơi nào!</span></button>
-  <div class="stats"><span id="starTotal">⭐ 0</span><span id="doneTotal">0 / 1000 bài</span></div>
+  <div class="stats"><span id="starTotal">⭐ 0</span><span id="doneTotal">0 / 300 bài</span></div>
   <div class="chapters" id="chapters"></div>
   <div class="grid" id="grid"></div>
   <div class="parent">
@@ -127,17 +165,17 @@
 </section>
 <canvas id="fx"></canvas>
 
-<script src="art.js"></script>
+<script src="assets/catalog.js"></script>
 <script src="puzzles.js"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  const ALL = Puzzles.build(1000);
-  const KEY = 'thamtunhi-v1';
+  const TOTAL = 300;
+  const ALL = Puzzles.build(window.CATALOG, TOTAL);
+  const KEY = 'thamtunhi-v2';
   let st = { solved: {}, last: 1, voice: true };
   try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
-  $('globaldefs').innerHTML = Art.defs().replace(/^<defs>|<\/defs>$/g, '');
 
   // ---------- voice ----------
   let viVoice = null;
@@ -198,14 +236,14 @@
     const solved = Object.keys(st.solved).length;
     const stars = Object.values(st.solved).reduce((a, b) => a + b, 0);
     $('starTotal').textContent = '⭐ ' + stars;
-    $('doneTotal').textContent = solved + ' / 1000 bài';
+    $('doneTotal').textContent = solved + ' / ' + TOTAL + ' bài';
     $('continue').querySelector('span').textContent = solved ? `Chơi tiếp — Bài ${st.last}` : 'Chơi nào!';
     $('toggleVoice').textContent = '🔊 Đọc câu hỏi: ' + (st.voice ? 'Bật' : 'Tắt');
     let ch = '';
-    for (let c = 0; c < 20; c++) {
+    for (let c = 0; c < TOTAL / 50; c++) {
       const a = c * 50 + 1, b = a + 49;
       let d = 0; for (let i = a; i <= b; i++) if (st.solved[i]) d++;
-      ch += `<button data-ch="${c}" class="${c === chapter ? 'sel' : ''}">${a}–${b}<small>${d ? '⭐ ' + d + '/50' : ['Dễ', 'Dễ', 'Dễ', 'Dễ', 'Vừa', 'Vừa', 'Vừa', 'Vừa', 'Vừa', 'Vừa', 'Khó', 'Khó', 'Khó', 'Khó', 'Khó', 'Khó', 'Siêu khó', 'Siêu khó', 'Siêu khó', 'Siêu khó'][c]}</small></button>`;
+      ch += `<button data-ch="${c}" class="${c === chapter ? 'sel' : ''}">${a}–${b}<small>${d ? '⭐ ' + d + '/50' : ['Dễ', 'Vừa', 'Khó', 'Khó', 'Siêu khó', 'Siêu khó'][c]}</small></button>`;
     }
     $('chapters').innerHTML = ch;
     let g = '';
@@ -225,18 +263,21 @@
   let cur = null, misses = 0, locked = false;
   function show(id) { document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.id === id)); }
   function start(id) {
-    id = Math.max(1, Math.min(1000, id));
+    id = Math.max(1, Math.min(TOTAL, id));
     cur = ALL[id - 1]; misses = 0; locked = false;
     st.last = id; save();
     show('play');
     $('bubble').classList.remove('on'); $('hint').classList.remove('on');
     $('num').textContent = id;
     $('qtext').textContent = cur.question;
-    $('scene').innerHTML = Puzzles.sceneSVG(cur, ' preserveAspectRatio="xMidYMid meet"').replace(/<defs>[\s\S]*?<\/defs>/, '');
+    $('scene').innerHTML = boardHTML(cur);
     const box = $('choices');
     box.className = 'choices n' + cur.choices.length;
     box.innerHTML = cur.choices.map((c, i) =>
-      `<button class="pick" data-i="${i}" aria-label="${Art.SPECIES[c.sp].name}"><svg viewBox="-28 -45 256 295" preserveAspectRatio="xMidYMid meet">${Art.character(c)}</svg><span class="mark"></span></button>`).join('');
+      cur.choiceKind === 'number'
+        ? `<button class="pick" data-i="${i}" aria-label="${c.name}"><span class="numb">${c.num}<span class="dots">${'<i></i>'.repeat(c.num)}</span></span><span class="mark"></span></button>`
+        : `<button class="pick ${cur.choiceKind}" data-i="${i}" aria-label="${c.name}"><img src="${c.img}" alt="${c.name}" draggable="false"><span class="mark"></span></button>`).join('');
+    preload(cur.id + 1);
     fitScene();
     setTimeout(() => say(cur.question), 250);
   }
@@ -248,7 +289,7 @@
       b.classList.add('right'); b.querySelector('.mark').textContent = '✓';
       const stars = misses === 0 ? 3 : misses === 1 ? 2 : 1;
       st.solved[cur.id] = Math.max(st.solved[cur.id] || 0, stars);
-      st.last = Math.min(1000, cur.id + 1); save();
+      st.last = Math.min(TOTAL, cur.id + 1); save();
       sfx.right(); confetti();
       const titles = ['Giỏi quá!', 'Đúng rồi!', 'Tuyệt vời!', 'Thám tử giỏi!', 'Hoan hô!'];
       const t = titles[cur.id % titles.length];
@@ -267,8 +308,35 @@
       if (misses >= 3) document.querySelector(`.pick[data-i="${cur.answer}"]`).classList.add('hintglow');
     }
   };
+  const SPARK = '<svg viewBox="0 0 100 40"><g stroke="#ffc400" stroke-width="6" stroke-linecap="round"><path d="M22 34 l-10 -12"/><path d="M50 28 l0 -20"/><path d="M78 34 l10 -12"/></g></svg>';
+  function boardHTML(p) {
+    let h = `<div class="board"><img class="bg" src="assets/bg/${p.scene}.webp" alt="" draggable="false">`;
+    if (p.silhouette) h += `<div class="spot"></div><img class="sil" src="${p.silhouette}" alt="">`;
+    if (p.photo) h += `<div class="photo"><img src="${p.photo}" alt=""></div>`;
+    if (p.peek) {
+      h += `<div class="peekbox ${p.peek.mode}"><img src="${p.peek.img}" alt=""></div>`;
+      const has = (id) => window.CATALOG.items.includes(id);
+      if (p.peek.mode === 'feet') h += has('curtain') ? '<img class="curtainimg" src="assets/item/curtain.webp" alt="">' : '<div class="curtain"></div>';
+      else if (has('bush')) h += '<img class="bushimg" src="assets/item/bush.webp" alt="">';
+      else h += '<div class="bush">' + [[0, 30, 34], [22, 8, 40], [50, 22, 36], [70, 34, 30], [12, 52, 34], [40, 48, 38], [66, 58, 34]].map(([l, t, w]) => `<i style="left:${l}%;top:${t}%;width:${w}%;aspect-ratio:1"></i>`).join('') + '</div>';
+    }
+    if (p.group) h += `<div class="frame" style="left:20%;right:20%;top:14%;bottom:24%"><span class="cap">📷 Hôm qua</span>${p.group.map((u) => `<img src="${u}" alt="">`).join('')}</div>`;
+    if (p.beforeAfter) h += `<div class="frame" style="left:8%;width:30%;top:14%;bottom:8%"><span class="cap">☀️ Sáng nay</span><img src="${p.beforeAfter[0]}" alt=""></div><div class="arrow">➜</div><div class="frame" style="right:8%;width:30%;top:14%;bottom:8%"><span class="cap">Bây giờ</span><img src="${p.beforeAfter[1]}" alt=""></div>`;
+    if (p.crowd) h += `<div class="crowd">${p.crowd.map((u) => `<img src="${u}" alt="">`).join('')}</div>`;
+    if (p.witness) h += `<img class="owl" src="assets/item/owl.webp" alt=""><div class="bubble2">${p.witness.map((u) => `<img src="${u}" alt="">`).join('<b style="font-size:4cqw">+</b>')}</div>`;
+    for (const x of p.props) {
+      if (x.missing) { h += `<div class="missing" style="left:${x.x}%;top:${x.y}%;width:${x.w}cqw">?</div>`; continue; }
+      h += `<img class="prop${x.card ? ' card' : ''}" src="${x.img}" alt="" draggable="false" style="left:${x.x}%;top:${x.y}%;width:${x.w}cqw;transform:translate(-50%,-50%) rotate(${x.rot || 0}deg)">`;
+      if (x.sparkle) h += `<div class="spark" style="left:${x.x}%;top:${x.y - 6}%">${SPARK}</div>`;
+    }
+    return h + '</div>';
+  }
+  function preload(id) {
+    const p = ALL[id - 1]; if (!p) return;
+    [`assets/bg/${p.scene}.webp`, ...p.choices.map((c) => c.img), ...p.props.map((x) => x.img), p.silhouette, p.photo, p.peek && p.peek.img, ...(p.group || []), ...(p.beforeAfter || []), ...(p.crowd || []), ...(p.witness || [])].filter(Boolean).forEach((u) => { const i = new Image(); i.src = u; });
+  }
   function fitScene() {
-    const box = $('scene'), svg = box.querySelector('svg'); if (!svg) return;
+    const box = $('scene'), svg = box.querySelector('.board'); if (!svg) return;
     const w = box.clientWidth, h = box.clientHeight, W = Math.min(w, h * 16 / 9);
     svg.style.width = W + 'px'; svg.style.height = W * 9 / 16 + 'px';
   }
