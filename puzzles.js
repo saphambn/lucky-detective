@@ -1,4 +1,4 @@
-// Thám Tử Nhí — 300 deterministic puzzles built from the AI art catalog (browser + Node)
+// Thám Tử Nhí — 400 deterministic puzzles built from the AI art catalog (browser + Node)
 (function (root) {
   const VI = { red: 'đỏ', orange: 'cam', yellow: 'vàng', green: 'xanh lá', blue: 'xanh dương', purple: 'tím', pink: 'hồng' };
   const TOUGH = { red: ['orange', 'pink'], orange: ['red', 'yellow'], yellow: ['orange', 'green'], green: ['blue', 'yellow'], blue: ['purple', 'green'], purple: ['pink', 'blue'], pink: ['purple', 'red'] };
@@ -42,10 +42,27 @@
   };
   const CRIMES = ['lấy trộm bánh quy', 'làm vỡ chiếc bình hoa', 'giấu đồ chơi của em bé', 'làm đổ cốc sữa', 'vẽ bậy lên tường', 'ăn hết kẹo trong hộp'];
   const LABEL = { lost: 'Đồ bị bỏ quên', shadow: 'Đoán bóng', ate: 'Ai ăn vụng', paint: 'Đổ sơn', mess: 'Dấu vết', owner: 'Đồ của ai', taken: 'Ai lấy đồ', odd: 'Ai khác biệt', lookalike: 'Giống ảnh',
-    negative: 'Bạn nào KHÔNG', peek: 'Ai đang trốn', photoMissing: 'Ai vắng mặt', whatLost: 'Mất đồ gì', count: 'Đếm dấu vết', witness: 'Lời nhân chứng', twoClue: 'Hai manh mối' };
-  // [unlock level, weight early, weight late(>180)]
-  const SCHEDULE = { lost: [1, 1, 0.4], shadow: [1, 1, 0.5], ate: [1, 1, 0.3], paint: [1, 1, 0.3], mess: [1, 1.6, 0.5], owner: [1, 0.8, 0.5], taken: [1, 1, 0.5], odd: [1, 0.8, 0.5], lookalike: [1, 0.8, 0.8],
-    negative: [31, 1.5, 1.2], peek: [31, 1.5, 1.5], photoMissing: [31, 1.2, 1.2], whatLost: [31, 1.5, 1.2], count: [31, 1.2, 1.2], witness: [91, 2.5, 3], twoClue: [91, 2.2, 3] };
+    negative: 'Bạn nào KHÔNG', peek: 'Ai đang trốn', photoMissing: 'Ai vắng mặt', whatLost: 'Mất đồ gì', count: 'Đếm dấu vết', witness: 'Lời nhân chứng', twoClue: 'Hai manh mối',
+    countItems: 'Đếm đồ vật', addSub: 'Thêm và bớt', pattern: 'Quy luật', countAttr: 'Đếm các bạn', position: 'Vị trí', memory: 'Trí nhớ', oddCat: 'Khác nhóm', fitUse: 'Đồ dùng' };
+  // countable things: [vi name, vi classifier, en noun]
+  const CL = { balloon: ['quả bóng bay', 'quả', 'balloon'], apple: ['quả táo', 'quả', 'apple'], lollipop: ['cái kẹo mút', 'cái', 'lollipop'], flower: ['bông hoa', 'bông', 'flower'] };
+  // what to use where: answer kinds + clearly-wrong kinds
+  const USES = [
+    { sc: 'hallway', ans: ['umbrella'], wrong: ['glasses', 'lollipop', 'flower', 'balloon', 'apple'], vi: ['Trời đang mưa to. Ra ngoài thì con cần mang gì?', 'Trời mưa thì cần mang ô.'], en: ["It's raining hard. What do you need to go outside?", 'When it rains, you need an umbrella.'] },
+    { sc: 'snow', ans: ['scarf'], wrong: ['glasses', 'apple', 'balloon', 'lollipop', 'flower', 'watermelon'], vi: ['Trời lạnh có tuyết. Con cần gì để giữ ấm cổ?', 'Khăn quàng giữ ấm cổ.'], en: ["It's cold and snowy. What keeps your neck warm?", 'A scarf keeps your neck warm.'] },
+    { sc: 'classroom', ans: ['backpack'], wrong: ['cap', 'apple', 'balloon', 'lollipop', 'flower', 'shoe'], vi: ['Đi học, con đựng sách vở vào đâu?', 'Sách vở được đựng trong ba lô.'], en: ['What do you carry your books in at school?', 'Books go in a backpack.'] },
+    { sc: 'playground', ans: ['cap'], wrong: ['scarf', 'shoe', 'apple', 'lollipop', 'backpack'], vi: ['Trời nắng to. Con đội gì để che nắng?', 'Đội mũ để che nắng.'], en: ["It's very sunny. What do you wear on your head?", 'A cap keeps the sun off your head.'] },
+    { sc: 'hallway', ans: ['shoe'], wrong: ['cap', 'glasses', 'scarf', 'apple', 'balloon'], vi: ['Chuẩn bị ra ngoài chơi. Con đi gì vào chân?', 'Giày để đi vào chân.'], en: ['Time to go out and play. What goes on your feet?', 'Shoes go on your feet.'] },
+    { sc: 'kitchen', ans: ['apple', 'watermelon', 'cake-strawberry', 'cake-chocolate'], wrong: ['shoe', 'cap', 'backpack', 'glasses', 'scarf', 'balloon'], hungry: true, vi: ['', 'Đồ ăn giúp bạn ấy no bụng.'], en: ['', 'Food fills a hungry tummy.'] },
+    { sc: 'livingroom', ans: ['glasses'], wrong: ['scarf', 'cap', 'apple', 'lollipop', 'shoe'], owl: true, vi: ['Bác Cú Mèo đọc sách nhưng nhìn chữ không rõ. Bác cần đeo gì?', 'Đeo kính giúp nhìn rõ hơn.'], en: ["Mr. Owl can't read the words clearly. What does he need?", 'Glasses help you see clearly.'] },
+    { sc: 'classroom', ans: ['paint'], wrong: ['shoe', 'apple', 'scarf', 'balloon', 'cap'], vi: ['Đến giờ vẽ tranh rồi! Con cần gì để tô màu?', 'Cần sơn màu để vẽ tranh.'], en: ["It's painting time! What do you need?", 'You need paint to paint a picture.'] },
+  ];
+  const SPECIAL = { 'cake-strawberry': ['bánh kem dâu', 'strawberry cake'], 'cake-chocolate': ['bánh sô-cô-la', 'chocolate cake'], honey: ['mật ong', 'honey'], watermelon: ['dưa hấu', 'watermelon'] };
+  const KN = { tshirt: ['áo', 'T-shirt'], umbrella: ['chiếc ô', 'umbrella'], paint: ['hộp sơn', 'paint'] };
+  // [unlock tier, weight early, weight in the last tier]
+  const SCHEDULE = { lost: [0, 1, 0.4], shadow: [0, 1, 0.5], ate: [0, 1, 0.3], paint: [0, 1, 0.3], mess: [0, 1.6, 0.5], owner: [0, 0.8, 0.5], taken: [0, 1, 0.5], odd: [0, 0.8, 0.5], lookalike: [0, 0.8, 0.8],
+    negative: [1, 1.5, 1.2], peek: [1, 1.5, 1.5], photoMissing: [1, 1.2, 1.2], whatLost: [1, 1.5, 1.2], count: [1, 1.2, 1.2], witness: [2, 2.5, 3], twoClue: [2, 2.2, 3],
+    countItems: [0, 1.3, 0.6], pattern: [0, 1.2, 1.3], position: [0, 1.1, 1.1], oddCat: [0, 1, 0.5], fitUse: [0, 1, 0.5], addSub: [1, 1.5, 1.4], countAttr: [1, 1.1, 1], memory: [1, 1.3, 1.3] };
 
   function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function mk(rng) {
@@ -56,12 +73,17 @@
   class Fail extends Error {}
   const need = (x) => { if (!x) throw new Fail(); return x; };
 
-  function build(cat, count = 300, lang = 'vi') {
+  function build(cat, count = 400, lang = 'vi') {
     const EN = lang === 'en', t = (vi, en) => (EN ? en : vi);
     const sname = (sp) => (EN ? EN_T.sp[sp] : cat.species[sp]);
     const where = (sc) => (EN ? EN_T.bg[sc] : cat.backgrounds[sc]);
     const col = (c) => (EN ? c : VI[c]);
     const thing = (k, c) => (EN ? `${c} ${k === 'glasses' ? 'glasses' : k}` : `${NOUN[k]} màu ${VI[c]}`);
+    const itemName = (x) => { if (SPECIAL[x]) return SPECIAL[x][EN ? 1 : 0]; const [k, c] = x.split('-'); if (KN[k]) return EN ? `${c} ${KN[k][1]}` : `${KN[k][0]} màu ${VI[c]}`; return thing(k, c); };
+    const itemChoice = (x) => ({ img: `assets/item/${x}.webp`, name: itemName(x) });
+    const an = (c) => (/^[aeiou]/.test(c) ? 'an ' : 'a ') + c;
+    const numChoices = (R, ans, n, top) => { const lo = Math.max(1, Math.min(ans - R.int(n), Math.max(top, n) + 1 - n)), nums = Array.from({ length: n }, (_, i) => lo + i); return { choiceKind: 'number', choices: nums.map((x) => ({ num: x, name: String(x) })), answer: nums.indexOf(ans) }; };
+    const colorsOf = (K) => cat.holdColors[K].filter((c) => items.has(`${K}-${c}`));
     const ME = (k) => (EN ? { ...MESS[k], ...EN_T.mess[k], not: EN_T.mess[k].adj } : MESS[k]);
     const bgs = Object.keys(cat.backgrounds), items = new Set(cat.items);
     const outfit = Object.fromEntries(cat.outfits.map((o) => [o.id, o]));
@@ -322,15 +344,145 @@
         return { scene: scene(R, ['livingroom', 'kitchen', 'classroom']), ...place(R, cul, [...dA, ...dB, ...rest]), props,
           question: t(`Ai vừa ${did(a)}, lại còn ${did(b)}?`, `Who ${did(a)} and also ${did(b)}?`), hint: t('Thủ phạm có CẢ HAI dấu vết đấy!', 'The culprit has BOTH clues!'), explain: t(`Bạn ${sname(cul.sp)} có cả hai dấu vết.`, `${sname(cul.sp)} has both clues.`), key: cul.id };
       },
+      // ---------- early maths & thinking ----------
+      countItems(R, n, tier) {
+        const K = R.pick(Object.keys(CL)), max = [3, 5, 6, 7][tier], N = 1 + R.int(max), cols = colorsOf(K);
+        const list = Array.from({ length: N }, () => `${K}-${R.pick(cols)}`);
+        if (tier >= 2) { const K2 = R.pick(Object.keys(CL).filter((k) => k !== K)), c2 = colorsOf(K2); for (let i = 1 + R.int(3); i > 0; i--) list.push(`${K2}-${R.pick(c2)}`); }
+        const slots = R.shuffle(Array.from({ length: 10 }, (_, i) => [20 + (i % 5) * 15 + R.int(5) - 2, (i < 5 ? 36 : 70) + R.int(5) - 2]));
+        const order = R.shuffle(list);
+        const props = order.map((img, i) => ({ img, x: slots[i][0], y: slots[i][1], w: img.startsWith('balloon') ? 10 : 12, rot: R.int(17) - 8 }));
+        const [vi, , en] = CL[K];
+        return { scene: scene(R, ['livingroom', 'bedroom', 'park', 'garden', 'kitchen', 'playground']), props, ...numChoices(R, N, n, max),
+          question: t(`Có mấy ${vi}?`, `How many ${en}s are there?`), hint: t(`Con chỉ tay đếm từng ${vi} một nhé!`, `Point and count the ${en}s one by one!`),
+          explain: t(`Có ${N} ${vi}.`, N === 1 ? `There is 1 ${en}.` : `There are ${N} ${en}s.`), key: order.join() + slots.slice(0, 3).join() };
+      },
+      addSub(R, n, tier) {
+        const K = R.pick(Object.keys(CL)), [vi, cl, en] = CL[K], img = `assets/item/${K}-${R.pick(colorsOf(K))}.webp`;
+        const top = tier >= 3 ? 6 : tier >= 2 ? 5 : 4, sub = tier >= 2 && R.chance(0.5);
+        let a, b, ans;
+        if (sub) { a = 2 + R.int(top - 1); b = 1 + R.int(a - 1); ans = a - b; } else { ans = 2 + R.int(top - 1); a = 1 + R.int(ans - 1); b = ans - a; }
+        const A = R.pick(P((p) => p.kind === 'base')), B = R.pick(P((p) => p.kind === 'base' && p.sp !== A.sp)), nA = sname(A.sp), nB = sname(B.sp);
+        const pl = (x) => (x === 1 ? en : en + 's');
+        const tiles = [{ img: A.img, char: true }];
+        if (sub) for (let i = 0; i < a; i++) tiles.push({ img, gone: i >= a - b });
+        else { for (let i = 0; i < a; i++) tiles.push({ img }); tiles.push({ op: '+' }); for (let i = 0; i < b; i++) tiles.push({ img }); }
+        tiles.push({ op: '=' }, { op: '?' });
+        let question;
+        if (!sub) question = t(`Bạn ${nA} có ${a} ${vi}. Bạn ${nB} cho thêm ${b} ${cl}. Bây giờ bạn ${nA} có mấy ${vi}?`, `${nA} has ${a} ${pl(a)}. ${nB} gives ${nA} ${b} more. How many ${en}s does ${nA} have now?`);
+        else {
+          const gone = K === 'balloon' ? t(`${b} quả bay mất`, `${b} float${b === 1 ? 's' : ''} away`) : K === 'flower' ? t(`bạn ấy tặng mẹ ${b} bông`, `${nA} gives ${b} to Mom`) : t(`bạn ấy ăn mất ${b} ${cl}`, `${nA} eats ${b}`);
+          question = t(`Bạn ${nA} có ${a} ${vi}, ${gone}. Còn lại mấy ${vi}?`, `${nA} has ${a} ${pl(a)}. ${gone[0].toUpperCase() + gone.slice(1)}. How many are left?`);
+        }
+        return { scene: scene(R, K === 'flower' ? ['garden'] : K === 'balloon' ? ['park', 'playground'] : ['kitchen', 'livingroom']), tiles, ...numChoices(R, ans, n, top),
+          question, hint: sub ? t('Con đếm những cái không bị gạch nhé!', 'Count the ones that are not crossed out!') : t('Con đếm tất cả lại nhé!', 'Count them all together!'),
+          explain: sub ? t(`${a} bớt ${b} còn ${ans}.`, `${a} take away ${b} leaves ${ans}.`) : t(`${a} thêm ${b} là ${ans}.`, `${a} and ${b} more makes ${ans}.`), key: [K, a, b, sub, A.sp].join() };
+      },
+      pattern(R, n, tier) {
+        const u = R.pick([['AB'], ['AB', 'AAB', 'ABB'], ['AAB', 'ABB', 'ABC'], ['ABC', 'AABB', 'ABAC']][tier]);
+        const letters = [...new Set(u)], map = {};
+        if (tier >= 3 && R.chance(0.5)) { const ks = R.shuffle(Object.keys(CL)).slice(0, letters.length); letters.forEach((l, i) => (map[l] = `${ks[i]}-${R.pick(colorsOf(ks[i]))}`)); }
+        else { const K = R.pick(Object.keys(CL)), cs = R.shuffle(colorsOf(K)); need(cs.length >= letters.length + 1); letters.forEach((l, i) => (map[l] = `${K}-${cs[i]}`)); }
+        const L = Math.min(9, 2 * u.length + R.int(u.length)), seq = Array.from({ length: L + 1 }, (_, i) => map[u[i % u.length]]), ans = seq[L];
+        const used = Object.values(map), kinds = [...new Set(used.map((x) => x.split('-')[0]))];
+        const extra = R.shuffle(cat.items.filter((x) => kinds.includes(x.split('-')[0]) && !used.includes(x)));
+        const others = [...R.shuffle(used.filter((x) => x !== ans)), ...extra].slice(0, n - 1);
+        need(others.length === n - 1);
+        const ai = R.int(n), list = others.slice(); list.splice(ai, 0, ans);
+        return { scene: scene(R, ['classroom', 'livingroom', 'bedroom', 'park']), tiles: [...seq.slice(0, L).map((x) => ({ img: `assets/item/${x}.webp` })), { op: '?' }],
+          choiceKind: 'item', choices: list.map(itemChoice), answer: ai,
+          question: t('Các đồ vật xếp theo quy luật. Cái tiếp theo là gì?', 'Look at the pattern. What comes next?'),
+          hint: t('Con đọc to từng cái từ đầu, rồi đoán cái tiếp theo nhé!', 'Say each one out loud from the start, then guess what comes next!'),
+          explain: t(`Tiếp theo là ${itemName(ans)}.`, `Next comes the ${itemName(ans)}.`), key: u + seq.join() };
+      },
+      countAttr(R, n, tier) {
+        const opts = [
+          ...['cap', 'glasses', 'backpack', 'scarf'].map((a) => ({ has: (p) => p.kind === 'acc' && p.v.acc === a, vi: ACC[a].wear, en: a === 'glasses' ? 'wearing glasses' : `wearing a ${a}` })),
+          { has: (p) => p.kind === 'hold' && p.v.hold === 'balloon', vi: 'cầm bóng bay', en: 'holding a balloon' },
+          ...cat.colors.map((c) => ({ has: (p) => p.o.shirt === c, no: (p) => tier >= 2 || !TOUGH[c].includes(p.o.shirt), vi: `mặc áo màu ${VI[c]}`, en: `wearing ${an(c)} shirt` })),
+        ];
+        const A = R.pick(opts), m = tier >= 2 ? 5 : 4, k = 1 + R.int(m - 1);
+        const used = new Set(), crowd = [];
+        for (const p of R.shuffle(P((p) => clean(p) && A.has(p)))) { if (crowd.length === k) break; if (used.has(p.sp)) continue; used.add(p.sp); crowd.push(p); }
+        need(crowd.length === k);
+        for (const p of R.shuffle(P((p) => clean(p) && !A.has(p) && (!A.no || A.no(p))))) { if (crowd.length === m) break; if (used.has(p.sp)) continue; used.add(p.sp); crowd.push(p); }
+        need(crowd.length === m);
+        return { scene: scene(R, ['park', 'playground', 'classroom', 'garden']), crowd: R.shuffle(crowd).map((p) => p.img), ...numChoices(R, k, n, m),
+          question: t(`Có mấy bạn ${A.vi}?`, `How many friends are ${A.en}?`), hint: t('Con chỉ tay đếm từng bạn một nhé!', 'Point and count each friend one by one!'),
+          explain: t(`Có ${k} bạn ${A.vi}.`, k === 1 ? `Only 1 friend is ${A.en}.` : `${k} friends are ${A.en}.`), key: A.en + crowd.map((p) => p.id).sort().join() };
+      },
+      position(R, n, tier) {
+        const pool = P(tier >= 2 ? (p) => p.kind !== 'combo' : clean), first = R.pick(pool);
+        const row = R.shuffle([first, ...distract(R, first, n, pool)]), m = row.length, N = (i) => sname(row[i].sp);
+        const modes = ['middle', 'left', 'right', 'next', 'between', 'nth'].filter((md) => (md === 'middle' ? m % 2 === 1 : md === 'between' ? tier >= 2 : md === 'nth' ? tier >= 3 : tier >= 1));
+        const md = R.pick(modes);
+        let ans, question, hint;
+        if (md === 'middle') { ans = (m - 1) / 2; question = t('Bạn nào đứng ở giữa?', 'Who is standing in the middle?'); hint = t('Bạn ở giữa có số bạn hai bên bằng nhau đấy!', 'The friend in the middle has the same number of friends on each side!'); }
+        else if (md === 'left' || md === 'right') { ans = md === 'left' ? 0 : m - 1; question = t(`Bạn nào đứng ngoài cùng bên ${md === 'left' ? 'trái' : 'phải'}?`, `Who is standing at the far ${md}?`); hint = t(`Con giơ tay ${md === 'left' ? 'trái' : 'phải'} lên rồi nhìn về phía đó nhé!`, `Raise your ${md} hand and look that way!`); }
+        else if (md === 'next') { const e = R.pick([0, m - 1]); ans = e === 0 ? 1 : m - 2; question = t(`Bạn nào đứng cạnh bạn ${N(e)}?`, `Who is standing next to ${N(e)}?`); hint = t(`Con tìm bạn ${N(e)} trước nhé!`, `Find ${N(e)} first!`); }
+        else if (md === 'between') { ans = 1 + R.int(m - 2); question = t(`Bạn nào đứng giữa bạn ${N(ans - 1)} và bạn ${N(ans + 1)}?`, `Who is standing between ${N(ans - 1)} and ${N(ans + 1)}?`); hint = t(`Con tìm bạn ${N(ans - 1)} và bạn ${N(ans + 1)} trước nhé!`, `Find ${N(ans - 1)} and ${N(ans + 1)} first!`); }
+        else { ans = 1 + R.int(m - 2); question = t(`Đếm từ trái sang, bạn nào đứng thứ ${ans + 1}?`, `Counting from the left, who is number ${ans + 1}?`); hint = t('Con đếm từ bên trái: một, hai, ba…', 'Count from the left: one, two, three…'); }
+        const choices = R.shuffle(row);
+        return { scene: scene(R, ['park', 'playground', 'classroom', 'garden', 'autumn']), crowd: row.map((p) => p.img), choices, answer: choices.indexOf(row[ans]),
+          question, hint, explain: t(`Đó là bạn ${N(ans)}.`, `It's ${N(ans)}!`), key: md + row.map((p) => p.id).join() };
+      },
+      memory(R, n, tier) {
+        const m = tier >= 2 ? 4 : 3, memo = { secs: tier === 0 ? 5 : 4, intro: t('Con hãy nhìn thật kỹ và nhớ nhé!', 'Look carefully and remember!') };
+        const sc = scene(R, ['livingroom', 'bedroom', 'classroom', 'park']), hint = t('Con thử nhớ lại xem! Chạm vào rèm để xem lại.', 'Try to remember! Tap the curtain to peek again.');
+        if (tier >= 1 && R.chance(0.5)) {
+          const h = R.pick(P((p) => p.kind === 'hold')), crowd = R.shuffle([h, ...distract(R, h, m, P((p) => clean(p) && p.kind !== 'hold'))]);
+          const ans = it(`${h.v.hold}-${h.v.color}`), k = Math.min(n, 4);
+          const same = cat.items.filter((x) => x.startsWith(h.v.hold + '-') && x !== ans), diff = cat.items.filter((x) => /^(balloon|apple|lollipop|flower)-/.test(x) && !x.startsWith(h.v.hold + '-'));
+          const others = (tier >= 2 ? [...R.shuffle(same).slice(0, 2), ...R.shuffle(diff)] : R.shuffle(diff).filter((x, i, a) => a.findIndex((y) => y.split('-')[0] === x.split('-')[0]) === i)).slice(0, k - 1);
+          need(others.length === k - 1);
+          const ai = R.int(k), list = others.slice(); list.splice(ai, 0, ans);
+          return { scene: sc, crowd: crowd.map((p) => p.img), memory: memo, choiceKind: 'item', choices: list.map(itemChoice), answer: ai,
+            question: t(`Lúc nãy bạn ${sname(h.sp)} cầm gì?`, `What was ${sname(h.sp)} holding?`), hint, explain: t(`Bạn ${sname(h.sp)} cầm ${itemName(ans)}.`, `${sname(h.sp)} was holding the ${itemName(ans)}.`), key: 'h' + crowd.map((p) => p.id).join() };
+        }
+        const first = R.pick(P(clean)), crowd = R.shuffle([first, ...distract(R, first, m, P(clean))]), cul = R.pick(crowd);
+        const absent = distract(R, cul, n, P(clean), new Set(crowd.map((p) => p.sp)));
+        return { scene: sc, crowd: crowd.map((p) => p.img), memory: memo, ...place(R, cul, absent),
+          question: t('Bạn nào vừa ở đây lúc nãy?', 'Which friend was just here?'), hint, explain: t(`Bạn ${sname(cul.sp)} vừa ở đây.`, `${sname(cul.sp)} was here!`), key: 'w' + crowd.map((p) => p.id).join() };
+      },
+      oddCat(R, n, tier) {
+        const FOOD = (x) => /^(apple|lollipop)-/.test(x) || ['cake-strawberry', 'cake-chocolate', 'honey', 'watermelon'].includes(x);
+        const WEAR = (x) => /^(cap|scarf|shoe|tshirt|glasses)-/.test(x);
+        const groups = [{ f: FOOD, vi: 'đồ ăn', en: 'food', sc: 'kitchen' }, { f: WEAR, vi: 'đồ để mặc hoặc đeo', en: 'something you wear', sc: 'bedroom' }];
+        const g = R.int(2), G = groups[g], O = groups[1 - g];
+        let inG = cat.items.filter(G.f), outG = cat.items.filter(O.f);
+        if (tier >= 2) { const C = R.pick(cat.colors), a = inG.filter((x) => x.endsWith('-' + C)), b = outG.filter((x) => x.endsWith('-' + C)); if (new Set(a.map((x) => x.split('-')[0])).size >= n - 1 && b.length) { inG = a; outG = b; } }
+        const kindOf = (x) => (SPECIAL[x] ? x : x.split('-')[0]), seen = new Set(), picked = [];
+        for (const x of R.shuffle(inG)) { if (picked.length === n - 1) break; if (seen.has(kindOf(x))) continue; seen.add(kindOf(x)); picked.push(x); }
+        need(picked.length === n - 1);
+        const odd = R.pick(outG), ai = R.int(n), list = picked.slice(); list.splice(ai, 0, odd);
+        const nm = itemName(odd);
+        return { scene: G.sc, owl: true, choiceKind: 'item', choices: list.map(itemChoice), answer: ai,
+          question: t(`Cái nào KHÔNG phải là ${G.vi}?`, `Which one is NOT ${G.en}?`), hint: t(`Có ${n - 1} cái là ${G.vi}, chỉ một cái là khác. Con tìm nhé!`, `${n - 1} of them are ${G.en}. One is different!`),
+          explain: t(`${nm[0].toUpperCase() + nm.slice(1)} không phải là ${G.vi}.`, `The ${nm} is not ${G.en}.`), key: list.join() };
+      },
+      fitUse(R, n, tier) {
+        const U = R.pick(USES), of = (k) => cat.items.filter((x) => x === k || x.startsWith(k + '-'));
+        const ak = U.ans.filter((k) => of(k).length); need(ak.length); const ans = R.pick(of(R.pick(ak)));
+        const others = R.shuffle(U.wrong).filter((k) => of(k).length).slice(0, n - 1).map((k) => R.pick(of(k)));
+        need(others.length === n - 1);
+        const ai = R.int(n), list = others.slice(); list.splice(ai, 0, ans);
+        const who = sname(R.pick(cat.outfits).sp);
+        const question = U.hungry ? t(`Bạn ${who} đói bụng rồi. Bạn ấy nên ăn gì?`, `${who} is hungry. What can ${who} eat?`) : t(U.vi[0], U.en[0]);
+        return { scene: U.sc, owl: !!U.owl, choiceKind: 'item', choices: list.map(itemChoice), answer: ai,
+          question, hint: t('Con nghĩ xem cái nào dùng được ở đây nhé!', 'Think about which one is useful here!'), explain: t(U.vi[1], U.en[1]), key: U.sc + list.join() };
+      },
     };
 
     const TYPES = Object.keys(GEN);
     const out = [], seen = new Set(), R0 = mk(mulberry32(20261126));
     let prev = '';
+    // tiers: first 10% easy, then up to 30%, 60%, rest
+    const TB = [0, Math.round(count * 0.1), Math.round(count * 0.3), Math.round(count * 0.6)];
+    const tierOf = (lv) => (lv <= TB[1] ? 0 : lv <= TB[2] ? 1 : lv <= TB[3] ? 2 : 3), unlock = (x) => TB[SCHEDULE[x][0]] + 1;
     for (let i = 0; i < count; i++) {
-      const lv = i + 1, tier = lv <= 30 ? 0 : lv <= 90 ? 1 : lv <= 180 ? 2 : 3, n = lv <= 30 ? 3 : lv <= 180 ? 4 : 5;
-      const open = TYPES.filter((t) => lv >= SCHEDULE[t][0] && t !== prev);
-      const w = open.map((t) => (lv > 180 ? SCHEDULE[t][2] : SCHEDULE[t][1]) * (lv - SCHEDULE[t][0] < 10 && SCHEDULE[t][0] > 1 ? 3 : 1));
+      const lv = i + 1, tier = tierOf(lv), n = tier === 0 ? 3 : tier <= 2 ? 4 : 5;
+      const open = TYPES.filter((x) => lv >= unlock(x) && x !== prev);
+      const w = open.map((x) => (tier === 3 ? SCHEDULE[x][2] : SCHEDULE[x][1]) * (lv - unlock(x) < 10 && unlock(x) > 1 ? 3 : 1));
       const order = [];
       { const ww = w.slice(), oo = open.slice(); while (oo.length) { let r = R0.r() * ww.reduce((s, x) => s + x, 0), j = 0; while (r > ww[j]) r -= ww[j++]; order.push(oo[j]); oo.splice(j, 1); ww.splice(j, 1); } }
       let p = null;
@@ -344,7 +496,7 @@
           p = { id: lv, type, label: LABEL[type], tier, scene: q.scene, question: q.question, hint: q.hint, explain: q.explain, answer: q.answer, choiceKind: q.choiceKind || 'char',
             choices: q.choices.map((c) => (c.o ? { img: c.img, name: sname(c.sp) } : c)),
             props: (q.props || []).map((x) => (x.img ? { ...x, img: `assets/item/${x.img}.webp` } : x)),
-            silhouette: q.silhouette, photo: q.photo, peek: q.peek, group: q.group, beforeAfter: q.beforeAfter, crowd: q.crowd, witness: q.witness };
+            silhouette: q.silhouette, photo: q.photo, peek: q.peek, group: q.group, beforeAfter: q.beforeAfter, crowd: q.crowd, witness: q.witness, tiles: q.tiles, memory: q.memory, owl: q.owl };
           prev = type;
         } catch (e) { if (!(e instanceof Fail)) throw e; }
       }
@@ -354,7 +506,7 @@
     return out;
   }
   // number of answer choices per type (count/whatLost stay at 4 so cards stay big)
-  const q_n = (type, n) => (type === 'count' || type === 'whatLost' ? Math.min(n, 4) : n);
+  const q_n = (type, n) => (['count', 'whatLost', 'countItems', 'addSub', 'countAttr'].includes(type) ? Math.min(n, 4) : n);
 
   const api = { build, LABEL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
