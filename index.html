@@ -141,6 +141,7 @@
   <div class="chapters" id="chapters"></div>
   <div class="grid" id="grid"></div>
   <div class="parent">
+    <button id="toggleLang">🌐 Tiếng Việt</button>
     <button id="toggleVoice">🔊 Đọc câu hỏi: Bật</button>
     <button id="reset">Xoá tiến độ</button>
   </div>
@@ -171,24 +172,38 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const TOTAL = 300;
-  const ALL = Puzzles.build(window.CATALOG, TOTAL);
   const KEY = 'thamtunhi-v2';
-  let st = { solved: {}, last: 1, voice: true };
+  let st = { solved: {}, last: 1, voice: true, lang: 'vi' };
   try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+  const UI = {
+    vi: { title: 'Thám Tử Nhí', sub: '300 câu đố thám tử cho bé 3–5 tuổi', play: 'Chơi nào!', cont: (n) => `Chơi tiếp — Bài ${n}`, done: 'bài', voice: 'Đọc câu hỏi', on: 'Bật', off: 'Tắt', lang: '🌐 Tiếng Việt',
+      reset: 'Xoá tiến độ', reset2: 'Bấm lần nữa để xoá', levels: ['Dễ', 'Vừa', 'Khó', 'Khó', 'Siêu khó', 'Siêu khó'], praise: ['Giỏi quá!', 'Đúng rồi!', 'Tuyệt vời!', 'Thám tử giỏi!', 'Hoan hô!'],
+      wrong: 'Chưa đúng rồi, thử lại nhé!', wrongSay: 'Chưa đúng rồi, con thử lại nhé!', yesterday: '📷 Hôm qua', morning: '☀️ Sáng nay', now: 'Bây giờ' },
+    en: { title: 'Little Detective', sub: '300 detective puzzles for kids aged 3–5', play: "Let's play!", cont: (n) => `Continue — Puzzle ${n}`, done: 'puzzles', voice: 'Read aloud', on: 'On', off: 'Off', lang: '🌐 English',
+      reset: 'Reset progress', reset2: 'Tap again to reset', levels: ['Easy', 'Medium', 'Hard', 'Hard', 'Super hard', 'Super hard'], praise: ['Great job!', "That's right!", 'Awesome!', 'Super detective!', 'Hooray!'],
+      wrong: 'Not quite, try again!', wrongSay: 'Not quite. Try again!', yesterday: '📷 Yesterday', morning: '☀️ This morning', now: 'Now' },
+  };
+  { const q = new URLSearchParams(location.search).get('lang'); if (q === 'en' || q === 'vi') { st.lang = q; save(); } }
+  if (!UI[st.lang]) st.lang = 'vi';
+  let L = UI[st.lang], ALL = Puzzles.build(window.CATALOG, TOTAL, st.lang);
 
   // ---------- voice ----------
-  let viVoice = null;
+  let viVoice = null, enVoice = null;
   function pickVoice() {
     const vs = speechSynthesis.getVoices();
     viVoice = vs.find((v) => /vi[-_]VN/i.test(v.lang)) || vs.find((v) => /^vi/i.test(v.lang)) || null;
+    // prefer natural-sounding English voices when the device has them
+    const en = vs.filter((v) => /^en[-_]/i.test(v.lang)), rank = (v) => { const i = [/premium|enhanced|natural|neural/i, /Samantha|Ava|Allison|Susan|Zoe|Karen|Serena/i, /Google US English|Google UK English Female/i, /en[-_]US/i].findIndex((r) => r.test(v.name + ' ' + v.lang)); return i < 0 ? 9 : i; };
+    enVoice = en.sort((a, b) => rank(a) - rank(b))[0] || null;
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
   function say(text) {
     if (!st.voice || !('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice; u.rate = 0.9; u.pitch = 1.15;
+    if (st.lang === 'en') { u.lang = 'en-US'; if (enVoice) u.voice = enVoice; u.rate = 0.88; u.pitch = 1.1; }
+    else { u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice; u.rate = 0.9; u.pitch = 1.15; }
     speechSynthesis.speak(u);
   }
 
@@ -236,14 +251,17 @@
     const solved = Object.keys(st.solved).length;
     const stars = Object.values(st.solved).reduce((a, b) => a + b, 0);
     $('starTotal').textContent = '⭐ ' + stars;
-    $('doneTotal').textContent = solved + ' / ' + TOTAL + ' bài';
-    $('continue').querySelector('span').textContent = solved ? `Chơi tiếp — Bài ${st.last}` : 'Chơi nào!';
-    $('toggleVoice').textContent = '🔊 Đọc câu hỏi: ' + (st.voice ? 'Bật' : 'Tắt');
+    $('doneTotal').textContent = solved + ' / ' + TOTAL + ' ' + L.done;
+    $('continue').querySelector('span').textContent = solved ? L.cont(st.last) : L.play;
+    $('toggleVoice').textContent = `🔊 ${L.voice}: ${st.voice ? L.on : L.off}`;
+    $('toggleLang').textContent = L.lang; $('reset').textContent = L.reset;
+    document.querySelector('.logo h1').textContent = L.title; document.querySelector('.sub').textContent = L.sub;
+    document.documentElement.lang = st.lang; document.title = L.title;
     let ch = '';
     for (let c = 0; c < TOTAL / 50; c++) {
       const a = c * 50 + 1, b = a + 49;
       let d = 0; for (let i = a; i <= b; i++) if (st.solved[i]) d++;
-      ch += `<button data-ch="${c}" class="${c === chapter ? 'sel' : ''}">${a}–${b}<small>${d ? '⭐ ' + d + '/50' : ['Dễ', 'Vừa', 'Khó', 'Khó', 'Siêu khó', 'Siêu khó'][c]}</small></button>`;
+      ch += `<button data-ch="${c}" class="${c === chapter ? 'sel' : ''}">${a}–${b}<small>${d ? '⭐ ' + d + '/50' : L.levels[c]}</small></button>`;
     }
     $('chapters').innerHTML = ch;
     let g = '';
@@ -256,8 +274,9 @@
   $('chapters').onclick = (e) => { const b = e.target.closest('[data-ch]'); if (b) { chapter = +b.dataset.ch; sfx.tap(); renderHome(); } };
   $('grid').onclick = (e) => { const b = e.target.closest('[data-lv]'); if (b) start(+b.dataset.lv); };
   $('continue').onclick = () => start(st.last);
+  $('toggleLang').onclick = () => { st.lang = st.lang === 'en' ? 'vi' : 'en'; save(); L = UI[st.lang]; ALL = Puzzles.build(window.CATALOG, TOTAL, st.lang); sfx.tap(); renderHome(); };
   $('toggleVoice').onclick = () => { st.voice = !st.voice; save(); renderHome(); };
-  $('reset').onclick = () => { if ($('reset').dataset.armed) { st = { solved: {}, last: 1, voice: st.voice }; save(); chapter = 0; renderHome(); delete $('reset').dataset.armed; $('reset').textContent = 'Xoá tiến độ'; } else { $('reset').dataset.armed = 1; $('reset').textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { delete $('reset').dataset.armed; $('reset').textContent = 'Xoá tiến độ'; }, 3000); } };
+  $('reset').onclick = () => { if ($('reset').dataset.armed) { st = { solved: {}, last: 1, voice: st.voice, lang: st.lang }; save(); chapter = 0; renderHome(); delete $('reset').dataset.armed; $('reset').textContent = L.reset; } else { $('reset').dataset.armed = 1; $('reset').textContent = L.reset2; setTimeout(() => { delete $('reset').dataset.armed; $('reset').textContent = L.reset; }, 3000); } };
 
   // ---------- play ----------
   let cur = null, misses = 0, locked = false;
@@ -291,7 +310,7 @@
       st.solved[cur.id] = Math.max(st.solved[cur.id] || 0, stars);
       st.last = Math.min(TOTAL, cur.id + 1); save();
       sfx.right(); confetti();
-      const titles = ['Giỏi quá!', 'Đúng rồi!', 'Tuyệt vời!', 'Thám tử giỏi!', 'Hoan hô!'];
+      const titles = L.praise;
       const t = titles[cur.id % titles.length];
       $('btitle').textContent = t; $('bexplain').textContent = cur.explain;
       $('bstars').textContent = '⭐'.repeat(stars);
@@ -302,9 +321,9 @@
       misses++;
       b.classList.add('wrong'); b.querySelector('.mark').textContent = '✕';
       sfx.wrong();
-      $('hint').textContent = misses >= 2 ? '💡 ' + cur.hint : 'Chưa đúng rồi, thử lại nhé!';
+      $('hint').textContent = misses >= 2 ? '💡 ' + cur.hint : L.wrong;
       $('hint').classList.add('on');
-      say(misses >= 2 ? cur.hint : 'Chưa đúng rồi, con thử lại nhé!');
+      say(misses >= 2 ? cur.hint : L.wrongSay);
       if (misses >= 3) document.querySelector(`.pick[data-i="${cur.answer}"]`).classList.add('hintglow');
     }
   };
@@ -320,8 +339,8 @@
       else if (has('bush')) h += '<img class="bushimg" src="assets/item/bush.webp" alt="">';
       else h += '<div class="bush">' + [[0, 30, 34], [22, 8, 40], [50, 22, 36], [70, 34, 30], [12, 52, 34], [40, 48, 38], [66, 58, 34]].map(([l, t, w]) => `<i style="left:${l}%;top:${t}%;width:${w}%;aspect-ratio:1"></i>`).join('') + '</div>';
     }
-    if (p.group) h += `<div class="frame" style="left:20%;right:20%;top:14%;bottom:24%"><span class="cap">📷 Hôm qua</span>${p.group.map((u) => `<img src="${u}" alt="">`).join('')}</div>`;
-    if (p.beforeAfter) h += `<div class="frame" style="left:8%;width:30%;top:14%;bottom:8%"><span class="cap">☀️ Sáng nay</span><img src="${p.beforeAfter[0]}" alt=""></div><div class="arrow">➜</div><div class="frame" style="right:8%;width:30%;top:14%;bottom:8%"><span class="cap">Bây giờ</span><img src="${p.beforeAfter[1]}" alt=""></div>`;
+    if (p.group) h += `<div class="frame" style="left:20%;right:20%;top:14%;bottom:24%"><span class="cap">${L.yesterday}</span>${p.group.map((u) => `<img src="${u}" alt="">`).join('')}</div>`;
+    if (p.beforeAfter) h += `<div class="frame" style="left:8%;width:30%;top:14%;bottom:8%"><span class="cap">${L.morning}</span><img src="${p.beforeAfter[0]}" alt=""></div><div class="arrow">➜</div><div class="frame" style="right:8%;width:30%;top:14%;bottom:8%"><span class="cap">${L.now}</span><img src="${p.beforeAfter[1]}" alt=""></div>`;
     if (p.crowd) h += `<div class="crowd">${p.crowd.map((u) => `<img src="${u}" alt="">`).join('')}</div>`;
     if (p.witness) h += `<img class="owl" src="assets/item/owl.webp" alt=""><div class="bubble2">${p.witness.map((u) => `<img src="${u}" alt="">`).join('<b style="font-size:4cqw">+</b>')}</div>`;
     for (const x of p.props) {

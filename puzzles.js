@@ -24,6 +24,22 @@
     paint: { scenes: ['classroom', 'livingroom', 'bedroom'], did: 'làm đổ sơn', not: 'bị dính sơn', hint: 'Con nhìn tay của các bạn nhé!', ex: (n) => `Tay bạn ${n} dính sơn.` },
     smear: { scenes: ['kitchen', 'livingroom'], did: 'ăn vụng', not: 'bị dính bánh kẹo ở miệng', hint: 'Con nhìn miệng của các bạn nhé!', ex: (n) => `Miệng bạn ${n} còn dính đồ ăn.` },
   };
+  const EN_T = {
+    sp: { bear: 'Bear', panda: 'Panda', bunny: 'Bunny', cat: 'Kitty', fox: 'Fox', sheep: 'Sheep', squirrel: 'Squirrel', dog: 'Puppy', pig: 'Piggy', mouse: 'Mouse', elephant: 'Elephant', frog: 'Frog', duck: 'Duck', penguin: 'Penguin', lion: 'Lion', monkey: 'Monkey', koala: 'Koala', tiger: 'Tiger' },
+    bg: { classroom: 'the classroom', park: 'the park', kitchen: 'the kitchen', bedroom: 'the bedroom', livingroom: 'the living room', garden: 'the garden', playground: 'the playground', autumn: 'the autumn park', hallway: 'the front door', snow: 'the snowy yard' },
+    acc: { cap: ['a cap', 'heads'], backpack: ['a backpack', 'backs'], scarf: ['a scarf', 'necks'], glasses: ['glasses', 'eyes'] },
+    food: { strawberry: 'the strawberry cake', chocolate: 'the chocolate cake', honey: 'the honey', watermelon: 'the watermelon' },
+    taken: { balloon: 'took', flower: 'picked', apple: 'picked', lollipop: 'took' },
+    mess: {
+      mud: { did: 'stepped in the mud', adj: 'muddy', hint: "Look at everyone's shoes!", ex: (n) => `${n}'s shoes are covered in mud.` },
+      wet: { did: 'walked in the rain without a raincoat', adj: 'wet from the rain', hint: 'Look for the friend who is all wet!', ex: (n) => `${n} is soaking wet from the rain.` },
+      leaves: { did: 'jumped into the pile of leaves', adj: 'covered in leaves', hint: 'Look for leaves stuck on someone!', ex: (n) => `${n} still has leaves stuck on them.` },
+      flour: { did: 'spilled the bag of flour', adj: 'covered in flour', hint: 'Look for white flour on someone!', ex: (n) => `${n}'s face and hands are covered in flour.` },
+      paint: { adj: 'covered in paint', hint: "Look at everyone's hands!" },
+      smear: { adj: 'messy around the mouth', hint: "Look at everyone's mouth!" },
+    },
+    crimes: ['take the cookies', 'break the flower vase', "hide the baby's toy", 'spill the glass of milk', 'draw on the wall', 'eat all the candy in the box'],
+  };
   const CRIMES = ['lấy trộm bánh quy', 'làm vỡ chiếc bình hoa', 'giấu đồ chơi của em bé', 'làm đổ cốc sữa', 'vẽ bậy lên tường', 'ăn hết kẹo trong hộp'];
   const LABEL = { lost: 'Đồ bị bỏ quên', shadow: 'Đoán bóng', ate: 'Ai ăn vụng', paint: 'Đổ sơn', mess: 'Dấu vết', owner: 'Đồ của ai', taken: 'Ai lấy đồ', odd: 'Ai khác biệt', lookalike: 'Giống ảnh',
     negative: 'Bạn nào KHÔNG', peek: 'Ai đang trốn', photoMissing: 'Ai vắng mặt', whatLost: 'Mất đồ gì', count: 'Đếm dấu vết', witness: 'Lời nhân chứng', twoClue: 'Hai manh mối' };
@@ -40,8 +56,13 @@
   class Fail extends Error {}
   const need = (x) => { if (!x) throw new Fail(); return x; };
 
-  function build(cat, count = 300) {
-    const sname = (sp) => cat.species[sp];
+  function build(cat, count = 300, lang = 'vi') {
+    const EN = lang === 'en', t = (vi, en) => (EN ? en : vi);
+    const sname = (sp) => (EN ? EN_T.sp[sp] : cat.species[sp]);
+    const where = (sc) => (EN ? EN_T.bg[sc] : cat.backgrounds[sc]);
+    const col = (c) => (EN ? c : VI[c]);
+    const thing = (k, c) => (EN ? `${c} ${k === 'glasses' ? 'glasses' : k}` : `${NOUN[k]} màu ${VI[c]}`);
+    const ME = (k) => (EN ? { ...MESS[k], ...EN_T.mess[k], not: EN_T.mess[k].adj } : MESS[k]);
     const bgs = Object.keys(cat.backgrounds), items = new Set(cat.items);
     const outfit = Object.fromEntries(cat.outfits.map((o) => [o.id, o]));
     const poses = [];
@@ -77,7 +98,7 @@
           const others = distract(R, cul, n, P(safe(tier, ['acc', 'hold', 'smear', 'paint'])));
           const sc = scene(R, ['classroom', 'livingroom', 'bedroom', 'playground', 'hallway']);
           return { scene: sc, ...place(R, cul, others), props: [{ img: it(`shoe-${cul.o.shoes}`), x: R.pick([42, 50, 58]), y: 76, w: 15, rot: -6, sparkle: true }],
-            question: `Bạn nào đã để quên một chiếc giày ở ${cat.backgrounds[sc]} vậy nhỉ?`, hint: 'Con nhìn kỹ chân của các bạn nhé!', explain: `Bạn ${sname(cul.sp)} chỉ còn một chiếc giày.`, key: 'shoe' };
+            question: t(`Bạn nào đã để quên một chiếc giày ở ${where(sc)} vậy nhỉ?`, `Who left a shoe in ${where(sc)}?`), hint: t('Con nhìn kỹ chân của các bạn nhé!', "Look carefully at everyone's feet!"), explain: t(`Bạn ${sname(cul.sp)} chỉ còn một chiếc giày.`, `${sname(cul.sp)} has only one shoe.`), key: 'shoe' };
         }
         const acc = R.pick(Object.keys(ACC)), A = ACC[acc];
         const wearers = P((p) => p.kind === 'acc' && p.v.acc === acc);
@@ -87,7 +108,7 @@
         const C = need(R.pick(cat.colors.filter((c) => (tier >= 2 || !taken.has(c)) && items.has(`${acc}-${c}`))));
         const sc = scene(R, A.scenes);
         return { scene: sc, ...place(R, cul, others), props: [{ img: `${acc}-${C}`, x: R.pick([42, 50, 58]), y: 76, w: acc === 'scarf' ? 20 : 15, sparkle: true }],
-          question: `Bạn nào đã để quên ${A.name} ở ${cat.backgrounds[sc]} vậy nhỉ?`, hint: `Con nhìn kỹ ${A.look} của các bạn nhé!`, explain: `Bạn ${sname(cul.sp)} không có ${NOUN[acc]}.`, key: acc + C };
+          question: t(`Bạn nào đã để quên ${A.name} ở ${where(sc)} vậy nhỉ?`, `Who left ${EN_T.acc[acc][0]} in ${where(sc)}?`), hint: t(`Con nhìn kỹ ${A.look} của các bạn nhé!`, `Look carefully at everyone's ${EN_T.acc[acc][1]}!`), explain: t(`Bạn ${sname(cul.sp)} không có ${NOUN[acc]}.`, `${sname(cul.sp)} has no ${acc === 'glasses' ? 'glasses' : acc}.`), key: acc + C };
       },
       shadow(R, n, tier) {
         const sig = (p) => (p.kind === 'base' ? 'plain' : p.kind === 'acc' && ['cap', 'backpack'].includes(p.v.acc) ? p.v.acc : p.kind === 'hold' ? 'hold-' + p.v.hold : null);
@@ -101,9 +122,9 @@
           const first = R.pick(P(safe(tier, ['acc', 'hold'])));
           choices = [first, ...distract(R, first, n, P(safe(tier, ['acc', 'hold'])))];
         }
-        const ans = R.int(n), t = choices[ans];
-        return { scene: scene(R, ['bedroom', 'livingroom', 'classroom']), choices, answer: ans, silhouette: t.img,
-          question: 'Cái bóng này là của bạn nào?', hint: tier >= 2 ? 'Con nhìn xem bạn nào đội mũ, bạn nào cầm đồ nhé!' : 'Con nhìn hình dáng tai và đầu nhé!', explain: `Đó là cái bóng của bạn ${sname(t.sp)}.`, key: choices.map((c) => c.id).join() };
+        const ans = R.int(n), T = choices[ans];
+        return { scene: scene(R, ['bedroom', 'livingroom', 'classroom']), choices, answer: ans, silhouette: T.img,
+          question: t('Cái bóng này là của bạn nào?', 'Whose shadow is this?'), hint: tier >= 2 ? t('Con nhìn xem bạn nào đội mũ, bạn nào cầm đồ nhé!', 'Look for caps and things they are holding!') : t('Con nhìn hình dáng tai và đầu nhé!', 'Look at the shape of the ears and head!'), explain: t(`Đó là cái bóng của bạn ${sname(T.sp)}.`, `It is ${sname(T.sp)}'s shadow.`), key: choices.map((c) => c.id).join() };
       },
       ate(R, n, tier) {
         const cul = R.pick(P((p) => p.kind === 'smear')), F = foodOf(cul.v.food);
@@ -112,7 +133,7 @@
         const others = distract(R, cul, n, pool);
         const sc = scene(R, ['kitchen', 'kitchen', 'livingroom', 'garden']);
         return { scene: sc, ...place(R, cul, others), props: [{ img: it(F.prop), x: 50, y: sc === 'kitchen' ? 62 : 74, w: 22, sparkle: true }],
-          question: `Ai đã ăn vụng ${F.vi}?`, hint: 'Con nhìn miệng của các bạn nhé!', explain: `Miệng bạn ${sname(cul.sp)} còn dính ${F.vi}.`, key: F.id };
+          question: t(`Ai đã ăn vụng ${F.vi}?`, `Who sneaked a bite of ${EN_T.food[F.id]}?`), hint: t('Con nhìn miệng của các bạn nhé!', "Look at everyone's mouth!"), explain: t(`Miệng bạn ${sname(cul.sp)} còn dính ${F.vi}.`, `${sname(cul.sp)}'s mouth is messy with ${EN_T.food[F.id].slice(4)}.`), key: F.id };
       },
       paint(R, n, tier) {
         const cul = R.pick(P((p) => p.kind === 'paint')), C = cul.v.color;
@@ -120,17 +141,17 @@
         if (tier >= 1) pool = pool.concat(P((p) => p.kind === 'paint' && p.v.color !== C && (tier >= 3 || !TOUGH[C].includes(p.v.color))));
         const others = distract(R, cul, n, pool);
         return { scene: scene(R, MESS.paint.scenes.concat('kitchen')), ...place(R, cul, others), props: [{ img: it(`paint-${C}`), x: R.pick([40, 55, 62]), y: 76, w: 26 }],
-          question: `Ai đã làm đổ hộp sơn màu ${VI[C]}?`, hint: 'Con nhìn tay của các bạn nhé!', explain: `Tay bạn ${sname(cul.sp)} dính sơn màu ${VI[C]}.`, key: C };
+          question: t(`Ai đã làm đổ hộp sơn màu ${VI[C]}?`, `Who spilled the ${C} paint?`), hint: t('Con nhìn tay của các bạn nhé!', "Look at everyone's hands!"), explain: t(`Tay bạn ${sname(cul.sp)} dính sơn màu ${VI[C]}.`, `${sname(cul.sp)} has ${C} paint on their hands.`), key: C };
       },
       // mud / wet / leaves / flour
       mess(R, n, tier) {
-        const k = R.pick(['mud', 'mud', 'wet', 'leaves', 'flour']), M = MESS[k];
+        const k = R.pick(['mud', 'mud', 'wet', 'leaves', 'flour']), M = ME(k);
         const cul = R.pick(P((p) => p.kind === k));
         let pool = P(safe(tier, ['acc', 'hold', 'smear']));
         if (tier >= 2) pool = pool.concat(P((p) => ['wet', 'leaves', 'flour', 'mud', 'paint'].includes(p.kind) && p.kind !== k));
         const others = distract(R, cul, n, pool);
         const sc = scene(R, M.scenes), outdoor = ['park', 'playground', 'garden', 'autumn'].includes(sc);
-        const q = k === 'mud' ? (outdoor ? 'Ai vừa giẫm vào vũng bùn?' : sc === 'classroom' ? 'Ai đã mang giày bẩn vào lớp?' : 'Ai đã mang giày bẩn vào nhà?') : `Ai vừa ${M.did}?`;
+        const q = k === 'mud' ? (outdoor ? t('Ai vừa giẫm vào vũng bùn?', 'Who stepped in the mud puddle?') : sc === 'classroom' ? t('Ai đã mang giày bẩn vào lớp?', 'Who brought muddy shoes into the classroom?') : t('Ai đã mang giày bẩn vào nhà?', 'Who brought muddy shoes into the house?')) : t(`Ai vừa ${M.did}?`, `Who just ${M.did}?`);
         return { scene: sc, ...place(R, cul, others), props: [{ ...M.prop, img: it(M.prop.img) }], question: q, hint: M.hint, explain: M.ex(sname(cul.sp)), key: k };
       },
       owner(R, n, tier) {
@@ -141,7 +162,7 @@
         if (tier >= 2) { const near = pool.filter((p) => p.o.shirt === o.shirt || p.o.pattern === o.pattern); if (near.length >= n) pool = near.concat(pool.slice(0, 6)); }
         const others = distract(R, cul, n, pool);
         return { scene: scene(R, ['livingroom', 'park', 'classroom', 'hallway']), ...place(R, cul, others), props: [{ img: um, x: 50, y: 72, w: 28, rot: -10, sparkle: true }],
-          question: 'Chiếc ô này là của bạn nào?', hint: 'Con nhìn áo của các bạn nhé!', explain: `Chiếc ô giống hệt áo của bạn ${sname(cul.sp)}.`, key: um };
+          question: t('Chiếc ô này là của bạn nào?', 'Whose umbrella is this?'), hint: t('Con nhìn áo của các bạn nhé!', "Look at everyone's shirt!"), explain: t(`Chiếc ô giống hệt áo của bạn ${sname(cul.sp)}.`, `The umbrella matches ${sname(cul.sp)}'s shirt.`), key: um };
       },
       taken(R, n, tier) {
         const cul = R.pick(P((p) => p.kind === 'hold')), K = cul.v.hold, C = cul.v.color, T = TAKEN[K];
@@ -155,7 +176,7 @@
         const span = 44, x0 = 50 - span / 2;
         const props = row.map((c, i) => ({ x: x0 + (row.length > 1 ? (span * i) / (row.length - 1) : span / 2), y: K === 'balloon' ? 44 : 64, w: K === 'balloon' ? 10 : 9, ...(c ? { img: `${K}-${c}` } : { missing: true }) }));
         return { scene: scene(R, T.scenes), ...place(R, cul, others), props,
-          question: `Ai đã ${T.verb} ${T.name} màu ${VI[C]}?`, hint: 'Con nhìn xem các bạn đang cầm gì nhé!', explain: `Bạn ${sname(cul.sp)} đang cầm ${T.name} màu ${VI[C]}.`, key: K + C + row.join() };
+          question: t(`Ai đã ${T.verb} ${T.name} màu ${VI[C]}?`, `Who ${EN_T.taken[K]} the ${C} ${K}?`), hint: t('Con nhìn xem các bạn đang cầm gì nhé!', 'Look at what everyone is holding!'), explain: t(`Bạn ${sname(cul.sp)} đang cầm ${T.name} màu ${VI[C]}.`, `${sname(cul.sp)} is holding the ${C} ${K}.`), key: K + C + row.join() };
       },
       odd(R, n, tier) {
         const C = R.pick(cat.colors);
@@ -164,7 +185,7 @@
         const cul = R.pick(need(P((p) => Ds.includes(p.o.shirt) && safe(tier, ['acc', 'hold'])(p))));
         const others = distract(R, cul, n, same);
         return { scene: scene(R, ['classroom', 'playground', 'park']), ...place(R, cul, others), props: [{ img: it(`tshirt-${C}`), x: 50, y: 42, w: 20, card: true }],
-          question: `Cả lớp đều mặc áo màu ${VI[C]}. Bạn nào mặc áo khác màu?`, hint: 'Con nhìn màu áo của từng bạn nhé!', explain: `Bạn ${sname(cul.sp)} mặc áo màu ${VI[cul.o.shirt]}.`, key: C };
+          question: t(`Cả lớp đều mặc áo màu ${VI[C]}. Bạn nào mặc áo khác màu?`, `Everyone is wearing ${/^[aeiou]/.test(C) ? 'an' : 'a'} ${C} shirt. Who is wearing a different color?`), hint: t('Con nhìn màu áo của từng bạn nhé!', 'Look at the color of each shirt!'), explain: t(`Bạn ${sname(cul.sp)} mặc áo màu ${VI[cul.o.shirt]}.`, `${sname(cul.sp)} is wearing ${/^[aeiou]/.test(cul.o.shirt) ? 'an' : 'a'} ${cul.o.shirt} shirt.`), key: C };
       },
       lookalike(R, n, tier) {
         let choices;
@@ -174,17 +195,17 @@
         need(choices.length === n);
         const ans = R.int(n);
         return { scene: scene(R, ['livingroom', 'bedroom', 'classroom']), choices, answer: ans, photo: choices[ans].img,
-          question: 'Bạn nào giống hệt bạn trong bức ảnh?', hint: tier >= 2 ? 'Con nhìn kỹ từng chi tiết: tay, miệng, giày, đồ cầm nhé!' : 'Con so sánh quần áo nhé!', explain: `Bạn trong ảnh chính là bạn ${sname(choices[ans].sp)} này.`, key: '' };
+          question: t('Bạn nào giống hệt bạn trong bức ảnh?', 'Who looks exactly like the friend in the photo?'), hint: tier >= 2 ? t('Con nhìn kỹ từng chi tiết: tay, miệng, giày, đồ cầm nhé!', 'Check every detail: hands, mouth, shoes and what they hold!') : t('Con so sánh quần áo nhé!', 'Compare their clothes!'), explain: t(`Bạn trong ảnh chính là bạn ${sname(choices[ans].sp)} này.`, `The friend in the photo is ${sname(choices[ans].sp)}.`), key: '' };
       },
 
       // ---------- harder types ----------
       // everyone is messy except one
       negative(R, n, tier) {
-        const k = R.pick(['mud', 'paint', 'smear', 'wet', 'leaves', 'flour']), M = MESS[k];
+        const k = R.pick(['mud', 'paint', 'smear', 'wet', 'leaves', 'flour']), M = ME(k);
         const cul = R.pick(P((p) => (tier >= 2 ? !shows(p, k) && p.kind !== 'combo' : clean(p))));
         const others = distract(R, cul, n, P((p) => shows(p, k)));
         return { scene: scene(R, M.scenes), ...place(R, cul, others), props: [],
-          question: `Bạn nào KHÔNG ${M.not}?`, hint: `Bạn nào cũng ${M.not}, chỉ có một bạn là không. Con tìm thử nhé!`, explain: `Chỉ có bạn ${sname(cul.sp)} là không ${M.not}.`, key: k };
+          question: t(`Bạn nào KHÔNG ${M.not}?`, `Who is NOT ${M.not}?`), hint: t(`Bạn nào cũng ${M.not}, chỉ có một bạn là không. Con tìm thử nhé!`, `Everyone is ${M.not} except one friend. Can you find them?`), explain: t(`Chỉ có bạn ${sname(cul.sp)} là không ${M.not}.`, `Only ${sname(cul.sp)} is not ${M.not}.`), key: k };
       },
       // only feet (behind a curtain) or only the head (behind a bush) are visible
       peek(R, n, tier) {
@@ -206,9 +227,9 @@
         }
         const sc = scene(R, mode === 'feet' ? ['livingroom', 'bedroom', 'classroom'] : ['park', 'garden', 'playground', 'autumn']);
         return { scene: sc, ...place(R, cul, others), peek: { img: cul.img, mode },
-          question: mode === 'feet' ? 'Có một bạn đang trốn sau rèm cửa. Đó là bạn nào?' : 'Có một bạn đang trốn sau bụi cây. Đó là bạn nào?',
-          hint: mode === 'feet' ? 'Con nhìn màu giày và quần váy của bạn ấy nhé!' : 'Con nhìn tai, mặt và mũ của bạn ấy nhé!',
-          explain: `Bạn ${sname(cul.sp)} đang trốn ở đó!`, key: mode };
+          question: mode === 'feet' ? t('Có một bạn đang trốn sau rèm cửa. Đó là bạn nào?', 'Someone is hiding behind the curtain. Who is it?') : t('Có một bạn đang trốn sau bụi cây. Đó là bạn nào?', 'Someone is hiding behind the bush. Who is it?'),
+          hint: mode === 'feet' ? t('Con nhìn màu giày và quần váy của bạn ấy nhé!', 'Look at the color of their shoes and shorts or skirt!') : t('Con nhìn tai, mặt và mũ của bạn ấy nhé!', 'Look at their ears, face and cap!'),
+          explain: t(`Bạn ${sname(cul.sp)} đang trốn ở đó!`, `${sname(cul.sp)} was hiding there!`), key: mode };
       },
       // who is missing from the photo
       photoMissing(R, n, tier) {
@@ -224,7 +245,7 @@
         const missing = all[ans], inPhoto = R.shuffle(all.filter((_, i) => i !== ans));
         const choices = R.shuffle(all);
         return { scene: scene(R, ['livingroom', 'bedroom', 'classroom']), choices, answer: choices.indexOf(missing), group: inPhoto.map((p) => p.img),
-          question: 'Đây là ảnh chụp các bạn hôm qua. Bạn nào KHÔNG có trong ảnh?', hint: 'Con so sánh từng bạn với bức ảnh nhé!', explain: `Bạn ${sname(missing.sp)} không có trong ảnh.`, key: all.map((p) => p.id).sort().join() };
+          question: t('Đây là ảnh chụp các bạn hôm qua. Bạn nào KHÔNG có trong ảnh?', 'This is a photo of the friends yesterday. Who is NOT in the photo?'), hint: t('Con so sánh từng bạn với bức ảnh nhé!', 'Compare each friend with the photo!'), explain: t(`Bạn ${sname(missing.sp)} không có trong ảnh.`, `${sname(missing.sp)} is not in the photo.`), key: all.map((p) => p.id).sort().join() };
       },
       // before / after: what did they lose?  (choices are items)
       whatLost(R, n, tier) {
@@ -240,15 +261,15 @@
         const others = R.shuffle(near.length >= n - 1 ? near : pool).slice(0, n - 1);
         need(others.length === n - 1);
         const ai = R.int(n), list = others.slice(); list.splice(ai, 0, ans);
-        const nm = (x) => { const [t, c] = x.split('-'); return `${NOUN[t]} màu ${VI[c]}`; };
+        const nm = (x) => { const [k, c] = x.split('-'); return thing(k, c); };
         const verb = cul.kind === 'hold' ? 'làm mất' : 'để quên';
         return { scene: scene(R, ['classroom', 'park', 'livingroom', 'playground']), choiceKind: 'item', choices: list.map((x) => ({ img: `assets/item/${x}.webp`, name: nm(x) })), answer: ai,
           beforeAfter: [before.img, after.img],
-          question: `Buổi sáng bạn ${sname(cul.sp)} còn đủ đồ. Bây giờ bạn ấy đã ${verb} cái gì?`, hint: 'Con so sánh hai bức tranh: sáng nay và bây giờ nhé!', explain: `Bạn ${sname(cul.sp)} đã ${verb} ${nm(ans)}.`, key: cul.id };
+          question: t(`Buổi sáng bạn ${sname(cul.sp)} còn đủ đồ. Bây giờ bạn ấy đã ${verb} cái gì?`, `This morning ${sname(cul.sp)} had everything. What is missing now?`), hint: t('Con so sánh hai bức tranh: sáng nay và bây giờ nhé!', 'Compare the two pictures: this morning and now!'), explain: t(`Bạn ${sname(cul.sp)} đã ${verb} ${nm(ans)}.`, `${sname(cul.sp)} ${cul.kind === 'hold' ? 'lost' : 'left behind'} the ${nm(ans)}.`), key: cul.id };
       },
       // how many are messy?  (choices are numbers)
       count(R, n, tier) {
-        const k = R.pick(['mud', 'paint', 'smear', 'wet', 'leaves', 'flour']), M = MESS[k];
+        const k = R.pick(['mud', 'paint', 'smear', 'wet', 'leaves', 'flour']), M = ME(k);
         const m = tier >= 2 ? 5 : 4, dirty = 1 + R.int(m - (tier >= 2 ? 0 : 1));
         const used = new Set(), crowd = [];
         for (const p of R.shuffle(P((p) => shows(p, k)))) { if (crowd.length === dirty) break; if (used.has(p.sp)) continue; used.add(p.sp); crowd.push(p); }
@@ -256,7 +277,7 @@
         need(crowd.length === m);
         const lo = Math.max(1, Math.min(dirty - R.int(n), m + 1 - n)), nums = Array.from({ length: n }, (_, i) => lo + i);
         return { scene: scene(R, M.scenes), crowd: R.shuffle(crowd).map((p) => p.img), choiceKind: 'number', choices: nums.map((x) => ({ num: x, name: String(x) })), answer: nums.indexOf(dirty),
-          question: `Có bao nhiêu bạn ${M.not}?`, hint: 'Con chỉ tay đếm từng bạn một nhé!', explain: `Có ${dirty} bạn ${M.not}.`, key: k + crowd.map((p) => p.id).sort().join() };
+          question: t(`Có bao nhiêu bạn ${M.not}?`, `How many friends are ${M.not}?`), hint: t('Con chỉ tay đếm từng bạn một nhé!', 'Point and count each friend one by one!'), explain: t(`Có ${dirty} bạn ${M.not}.`, dirty === 1 ? `Only 1 friend is ${M.not}.` : `${dirty} friends are ${M.not}.`), key: k + crowd.map((p) => p.id).sort().join() };
       },
       // an eye-witness owl describes 2–3 features
       witness(R, n, tier) {
@@ -277,12 +298,15 @@
         for (const p of R.shuffle(near).concat(R.shuffle(pool))) { if (others.length === n - 1) break; if (used.has(p.sp)) continue; used.add(p.sp); others.push(p); }
         need(others.length === n - 1 && others.filter((p) => has(p) === want.length - 1).length >= Math.min(2, n - 1));
         const icon = ([t, v]) => (t === 'shirt' ? `tshirt-${v}` : t === 'shoes' ? `shoe-${v}` : v);
-        const phrase = ([t, v]) => { if (t === 'shirt') return `mặc áo màu ${VI[v]}`; if (t === 'shoes') return `đi giày màu ${VI[v]}`; const [a, c] = v.split('-'); return t === 'acc' ? `${ACC[a].wear} màu ${VI[c]}` : `cầm ${NOUN[a]} màu ${VI[c]}`; };
+        const phrase = ([k, v]) => {
+          const an = (c) => (/^[aeiou]/.test(c) ? 'an ' : 'a ') + c;
+          if (EN) { if (k === 'shirt') return `wearing ${an(v)} shirt`; if (k === 'shoes') return `wearing ${v} shoes`; const [a, c] = v.split('-'); return k === 'acc' ? (a === 'glasses' ? `wearing ${c} glasses` : `wearing ${an(c)} ${a}`) : `holding ${an(c)} ${a}`; }
+          if (k === 'shirt') return `mặc áo màu ${VI[v]}`; if (k === 'shoes') return `đi giày màu ${VI[v]}`; const [a, c] = v.split('-'); return k === 'acc' ? `${ACC[a].wear} màu ${VI[c]}` : `cầm ${NOUN[a]} màu ${VI[c]}`; };
         want.forEach((w) => it(icon(w)));
-        const crime = R.pick(CRIMES), words = want.map(phrase);
-        const said = words.length === 2 ? `${words[0]} và ${words[1]}` : `${words[0]}, ${words[1]} và ${words[2]}`;
+        const crime = R.pick(EN ? EN_T.crimes : CRIMES), words = want.map(phrase).map((w, i, A) => (EN && i && A[i - 1].startsWith('wearing ') && w.startsWith('wearing ') ? w.slice(8) : w));
+        const AND = t(' và ', ' and '), said = words.length === 2 ? words[0] + AND + words[1] : `${words[0]}, ${words[1]}${AND}${words[2]}`;
         return { scene: scene(R, ['livingroom', 'classroom', 'kitchen', 'park', 'garden']), ...place(R, cul, others), witness: want.map((w) => `assets/item/${icon(w)}.webp`),
-          question: `Bác Cú Mèo nhìn thấy bạn ${crime}: bạn ấy ${said}. Đó là ai?`, hint: 'Con tìm bạn có ĐỦ tất cả các đồ bác Cú Mèo kể nhé!', explain: `Chỉ có bạn ${sname(cul.sp)} ${said}.`, key: want.flat().join() };
+          question: t(`Bác Cú Mèo nhìn thấy bạn ${crime}: bạn ấy ${said}. Đó là ai?`, `Mr. Owl saw a friend ${crime}. That friend was ${said}. Who was it?`), hint: t('Con tìm bạn có ĐỦ tất cả các đồ bác Cú Mèo kể nhé!', 'Find the friend who has ALL the things Mr. Owl saw!'), explain: t(`Chỉ có bạn ${sname(cul.sp)} ${said}.`, `Only ${sname(cul.sp)} is ${said}.`), key: want.flat().join() };
       },
       // two clues at once: only the culprit shows both
       twoClue(R, n, tier) {
@@ -292,11 +316,11 @@
         const used = new Set([cul.sp]);
         const dA = distract(R, cul, 2, onlyA, used), dB = distract(R, cul, 2, onlyB, used);
         const rest = n - 3 > 0 ? distract(R, cul, n - 2, tier >= 3 ? P((p) => p.kind !== 'combo' && !shows(p, a) && !shows(p, b) && !clean(p)) : P(clean), used) : [];
-        const did = (k) => (k === 'paint' ? `làm đổ sơn màu ${VI[cul.v.color]}` : k === 'smear' ? `ăn vụng ${foodOf(cul.v.food).vi}` : 'giẫm bùn');
+        const did = (k) => (EN ? (k === 'paint' ? `spilled the ${cul.v.color} paint` : k === 'smear' ? `sneaked a bite of ${EN_T.food[cul.v.food]}` : 'stepped in the mud') : k === 'paint' ? `làm đổ sơn màu ${VI[cul.v.color]}` : k === 'smear' ? `ăn vụng ${foodOf(cul.v.food).vi}` : 'giẫm bùn');
         const pa = messProp(a, cul), pb = messProp(b, cul);
         const props = [{ ...pa, img: it(pa.img), x: 30, y: 74 }, { ...pb, img: it(pb.img), x: 70, y: pb.img === 'mudprints' ? 82 : 74, w: pb.img === 'mudprints' ? 40 : pb.w }];
         return { scene: scene(R, ['livingroom', 'kitchen', 'classroom']), ...place(R, cul, [...dA, ...dB, ...rest]), props,
-          question: `Ai vừa ${did(a)}, lại còn ${did(b)}?`, hint: 'Thủ phạm có CẢ HAI dấu vết đấy!', explain: `Bạn ${sname(cul.sp)} có cả hai dấu vết.`, key: cul.id };
+          question: t(`Ai vừa ${did(a)}, lại còn ${did(b)}?`, `Who ${did(a)} and also ${did(b)}?`), hint: t('Thủ phạm có CẢ HAI dấu vết đấy!', 'The culprit has BOTH clues!'), explain: t(`Bạn ${sname(cul.sp)} có cả hai dấu vết.`, `${sname(cul.sp)} has both clues.`), key: cul.id };
       },
     };
 
