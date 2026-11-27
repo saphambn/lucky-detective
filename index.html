@@ -194,7 +194,8 @@
     const vs = speechSynthesis.getVoices();
     viVoice = vs.find((v) => /vi[-_]VN/i.test(v.lang)) || vs.find((v) => /^vi/i.test(v.lang)) || null;
     // prefer natural-sounding English voices when the device has them
-    const en = vs.filter((v) => /^en[-_]/i.test(v.lang)), rank = (v) => { const i = [/premium|enhanced|natural|neural/i, /Samantha|Ava|Allison|Susan|Zoe|Karen|Serena/i, /Google US English|Google UK English Female/i, /en[-_]US/i].findIndex((r) => r.test(v.name + ' ' + v.lang)); return i < 0 ? 9 : i; };
+    const silly = /Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Wobble|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Zarvox|Fred|Junior|Ralph|Kathy|Grandpa|Grandma|Rocko/i;
+    const en = vs.filter((v) => /^en[-_]/i.test(v.lang) && !silly.test(v.name)), rank = (v) => { const i = [/premium|enhanced|natural|neural/i, /Samantha|Ava|Allison|Susan|Zoe|Karen|Serena/i, /Google US English|Google UK English Female/i, /en[-_]US/i].findIndex((r) => r.test(v.name + ' ' + v.lang)); return i < 0 ? 9 : i; };
     enVoice = en.sort((a, b) => rank(a) - rank(b))[0] || null;
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
