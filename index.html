@@ -183,6 +183,7 @@
 <canvas id="fx"></canvas>
 
 <script src="assets/catalog.js"></script>
+<script src="audio/en/voice.js"></script>
 <script src="puzzles.js"></script>
 <script>
 (() => {
@@ -215,10 +216,22 @@
     enVoice = en.sort((a, b) => rank(a) - rank(b))[0] || null;
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-  function say(text) {
-    if (!st.voice || !('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
+  // English lines play pre-recorded Gemini voice clips; anything else uses the device voice
+  const clip = new Audio();
+  let queue = [];
+  const playNext = () => { const u = queue.shift(); if (!u) return; clip.src = u; clip.playbackRate = 0.93; clip.preservesPitch = true; clip.play().catch(() => {}); };
+  clip.onended = playNext;
+  function hush() { queue = []; clip.pause(); if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+  // iOS only lets audio play after a tap: unlock the clip player on the first touch
+  addEventListener('pointerdown', () => { clip.muted = true; clip.src = 'audio/en/' + (Object.values(window.VOICE_EN || {})[0] || '') + '.m4a'; clip.play().then(() => { clip.pause(); clip.muted = false; }).catch(() => { clip.muted = false; }); }, { once: true });
+  function say(parts) {
+    parts = [].concat(parts);
+    if (!st.voice) return;
+    hush();
+    const V = window.VOICE_EN || {};
+    if (st.lang === 'en' && parts.every((x) => V[x])) { queue = parts.map((x) => `audio/en/${V[x]}.m4a`); playNext(); return; }
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(parts.join(' '));
     if (st.lang === 'en') { u.lang = 'en-US'; if (enVoice) u.voice = enVoice; u.rate = 0.88; u.pitch = 1.1; }
     else { u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice; u.rate = 0.9; u.pitch = 1.15; }
     speechSynthesis.speak(u);
@@ -341,7 +354,7 @@
       $('bstars').textContent = '⭐'.repeat(stars);
       $('hint').classList.remove('on');
       setTimeout(() => $('bubble').classList.add('on'), 450);
-      say(t + ' ' + cur.explain);
+      say([t, cur.explain]);
     } else {
       misses++;
       b.classList.add('wrong'); b.querySelector('.mark').textContent = '✕';
@@ -390,7 +403,7 @@
   addEventListener('resize', fitScene);
   $('next').onclick = () => { sfx.tap(); start(cur.id + 1); };
   $('speak').onclick = () => say($('qtext').textContent);
-  $('homeBtn').onclick = () => { clearTimeout(memT); speechSynthesis && speechSynthesis.cancel(); chapter = Math.floor((st.last - 1) / 50); renderHome(); show('home'); };
+  $('homeBtn').onclick = () => { clearTimeout(memT); hush(); chapter = Math.floor((st.last - 1) / 50); renderHome(); show('home'); };
 
   renderHome();
   const m = location.hash.match(/^#(\d+)$/); if (m) start(+m[1]);
